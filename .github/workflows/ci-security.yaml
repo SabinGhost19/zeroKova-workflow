@@ -1,0 +1,395 @@
+# =============================================================================
+# CI Security Pipeline - Trivy scanning for images and IaC
+# Generates HTML reports and uploads as artifacts
+# Pipeline continues even if vulnerabilities are found
+# =============================================================================
+
+name: CI - Security Scan
+
+on:
+  # trigger after build completes
+  workflow_run:
+    workflows: ["CI - Build & Push"]
+    types:
+      - completed
+
+  # trigger on push to main for IaC scanning
+  push:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+      - 'k8s/**'
+      - 'flux/**'
+
+  # allow manual trigger
+  workflow_dispatch:
+    inputs:
+      scan_all_images:
+        description: 'Scan all images'
+        required: false
+        default: 'true'
+        type: boolean
+      scan_iac:
+        description: 'Scan Infrastructure as Code'
+        required: false
+        default: 'true'
+        type: boolean
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/test-workflow
+
+concurrency:
+  group: security-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # Scan Docker images with Trivy
+  # ===========================================================================
+  scan-images:
+    name: Scan ${{ matrix.service }} Image
+    runs-on: ubuntu-latest
+    # Continue even if previous workflow failed - we want to scan what was built
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        service:
+          - api-gateway
+          - order-service
+          - inventory-service
+          - notification-service
+          - frontend
+
+    permissions:
+      contents: read
+      packages: read
+      security-events: write
+
+    # Continue on error - we don't want to fail the pipeline on vulnerabilities
+    continue-on-error: true
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Check if image exists
+        id: check-image
+        run: |
+          if docker manifest inspect ${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest > /dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "⚠️ Image ${{ matrix.service }}:latest not found, skipping scan" >> $GITHUB_STEP_SUMMARY
+          fi
+
+      # Scan for vulnerabilities - SARIF format for GitHub Security tab
+      - name: Trivy Vulnerability Scan (SARIF)
+        if: steps.check-image.outputs.exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest'
+          format: 'sarif'
+          output: 'trivy-${{ matrix.service }}-vuln.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          ignore-unfixed: true
+          exit-code: '0'  # Don't fail on vulnerabilities
+
+      # Scan for vulnerabilities - HTML format for easy viewing
+      - name: Trivy Vulnerability Scan (HTML Report)
+        if: steps.check-image.outputs.exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest'
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-${{ matrix.service }}-vuln.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          ignore-unfixed: true
+          exit-code: '0'
+
+      # Scan for vulnerabilities - JSON format for processing
+      - name: Trivy Vulnerability Scan (JSON)
+        if: steps.check-image.outputs.exists == 'true'
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: '${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:latest'
+          format: 'json'
+          output: 'trivy-${{ matrix.service }}-vuln.json'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          ignore-unfixed: true
+          exit-code: '0'
+
+      # Upload SARIF to GitHub Security tab
+      - name: Upload SARIF to GitHub Security
+        if: steps.check-image.outputs.exists == 'true'
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-${{ matrix.service }}-vuln.sarif'
+          category: 'trivy-${{ matrix.service }}'
+
+      # Upload HTML report as artifact
+      - name: Upload Vulnerability Report
+        if: steps.check-image.outputs.exists == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-report-${{ matrix.service }}
+          path: |
+            trivy-${{ matrix.service }}-vuln.html
+            trivy-${{ matrix.service }}-vuln.json
+          retention-days: 30
+
+      # Generate summary with vulnerability counts
+      - name: Generate Scan Summary
+        if: steps.check-image.outputs.exists == 'true'
+        run: |
+          echo "### 🔍 Trivy Scan: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [ -f "trivy-${{ matrix.service }}-vuln.json" ]; then
+            CRITICAL=$(cat trivy-${{ matrix.service }}-vuln.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="CRITICAL")] | length')
+            HIGH=$(cat trivy-${{ matrix.service }}-vuln.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="HIGH")] | length')
+            MEDIUM=$(cat trivy-${{ matrix.service }}-vuln.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="MEDIUM")] | length')
+            LOW=$(cat trivy-${{ matrix.service }}-vuln.json | jq '[.Results[]?.Vulnerabilities[]? | select(.Severity=="LOW")] | length')
+            
+            echo "| Severity | Count |" >> $GITHUB_STEP_SUMMARY
+            echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+            echo "| 🔴 Critical | $CRITICAL |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟠 High | $HIGH |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟡 Medium | $MEDIUM |" >> $GITHUB_STEP_SUMMARY
+            echo "| 🟢 Low | $LOW |" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "> ℹ️ Unfixed vulnerabilities are ignored" >> $GITHUB_STEP_SUMMARY
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📥 Download the HTML report from the Artifacts section for detailed view" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Scan Infrastructure as Code (Helm, K8s manifests)
+  # ===========================================================================
+  scan-iac:
+    name: Scan Infrastructure as Code
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' || github.event_name == 'workflow_dispatch' }}
+    continue-on-error: true
+
+    permissions:
+      contents: read
+      security-events: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Scan Helm charts
+      - name: Trivy IaC Scan - Helm Charts (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'helm/'
+          format: 'sarif'
+          output: 'trivy-helm-misconfig.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Trivy IaC Scan - Helm Charts (HTML)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'helm/'
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-helm-misconfig.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+
+      # Scan Kubernetes manifests
+      - name: Trivy IaC Scan - K8s Manifests (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'k8s/'
+          format: 'sarif'
+          output: 'trivy-k8s-misconfig.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Trivy IaC Scan - K8s Manifests (HTML)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'k8s/'
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-k8s-misconfig.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+
+      # Scan Flux configurations
+      - name: Trivy IaC Scan - Flux Configs (SARIF)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'flux/'
+          format: 'sarif'
+          output: 'trivy-flux-misconfig.sarif'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+          exit-code: '0'
+
+      - name: Trivy IaC Scan - Flux Configs (HTML)
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'config'
+          scan-ref: 'flux/'
+          format: 'template'
+          template: '@/contrib/html.tpl'
+          output: 'trivy-flux-misconfig.html'
+          severity: 'CRITICAL,HIGH,MEDIUM,LOW'
+          exit-code: '0'
+
+      # Upload all SARIF files
+      - name: Upload Helm SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-helm-misconfig.sarif'
+          category: 'trivy-helm-iac'
+
+      - name: Upload K8s SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-k8s-misconfig.sarif'
+          category: 'trivy-k8s-iac'
+
+      - name: Upload Flux SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: 'trivy-flux-misconfig.sarif'
+          category: 'trivy-flux-iac'
+
+      # Upload HTML reports as artifacts
+      - name: Upload IaC Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-iac-reports
+          path: |
+            trivy-helm-misconfig.html
+            trivy-k8s-misconfig.html
+            trivy-flux-misconfig.html
+          retention-days: 30
+
+      - name: IaC Scan Summary
+        run: |
+          echo "### 🏗️ Infrastructure as Code Scan Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Component | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-----------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Helm Charts | ✅ Scanned |" >> $GITHUB_STEP_SUMMARY
+          echo "| K8s Manifests | ✅ Scanned |" >> $GITHUB_STEP_SUMMARY
+          echo "| Flux Configs | ✅ Scanned |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 📥 Download HTML reports from Artifacts for detailed misconfiguration findings" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Combine all reports
+  # ===========================================================================
+  combine-reports:
+    name: Combine Security Reports
+    runs-on: ubuntu-latest
+    needs: [scan-images, scan-iac]
+    if: always()
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: security-reports
+          pattern: trivy-*
+
+      - name: Create combined report index
+        run: |
+          mkdir -p combined-reports
+          
+          # Create an index HTML file
+          cat << 'EOF' > combined-reports/index.html
+          <!DOCTYPE html>
+          <html>
+          <head>
+            <title>Trivy Security Reports - Test Workflow</title>
+            <style>
+              body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 40px; background: #0d1117; color: #c9d1d9; }
+              h1 { color: #58a6ff; border-bottom: 1px solid #30363d; padding-bottom: 10px; }
+              h2 { color: #8b949e; margin-top: 30px; }
+              .report-list { list-style: none; padding: 0; }
+              .report-list li { margin: 10px 0; padding: 15px; background: #161b22; border-radius: 6px; border: 1px solid #30363d; }
+              .report-list a { color: #58a6ff; text-decoration: none; font-weight: 500; }
+              .report-list a:hover { text-decoration: underline; }
+              .badge { display: inline-block; padding: 3px 8px; border-radius: 12px; font-size: 12px; margin-left: 10px; }
+              .badge-image { background: #238636; color: white; }
+              .badge-iac { background: #1f6feb; color: white; }
+              .timestamp { color: #8b949e; font-size: 14px; margin-top: 30px; }
+            </style>
+          </head>
+          <body>
+            <h1>🔒 Trivy Security Reports</h1>
+            <p>Generated from CI/CD Pipeline - Test Workflow Project</p>
+            
+            <h2>📦 Container Image Scans</h2>
+            <ul class="report-list">
+              <li><a href="trivy-report-api-gateway/trivy-api-gateway-vuln.html">API Gateway</a> <span class="badge badge-image">Image</span></li>
+              <li><a href="trivy-report-order-service/trivy-order-service-vuln.html">Order Service</a> <span class="badge badge-image">Image</span></li>
+              <li><a href="trivy-report-inventory-service/trivy-inventory-service-vuln.html">Inventory Service</a> <span class="badge badge-image">Image</span></li>
+              <li><a href="trivy-report-notification-service/trivy-notification-service-vuln.html">Notification Service</a> <span class="badge badge-image">Image</span></li>
+              <li><a href="trivy-report-frontend/trivy-frontend-vuln.html">Frontend</a> <span class="badge badge-image">Image</span></li>
+            </ul>
+            
+            <h2>🏗️ Infrastructure as Code Scans</h2>
+            <ul class="report-list">
+              <li><a href="trivy-iac-reports/trivy-helm-misconfig.html">Helm Charts</a> <span class="badge badge-iac">IaC</span></li>
+              <li><a href="trivy-iac-reports/trivy-k8s-misconfig.html">Kubernetes Manifests</a> <span class="badge badge-iac">IaC</span></li>
+              <li><a href="trivy-iac-reports/trivy-flux-misconfig.html">Flux Configurations</a> <span class="badge badge-iac">IaC</span></li>
+            </ul>
+            
+            <p class="timestamp">Report generated: <script>document.write(new Date().toISOString())</script></p>
+          </body>
+          </html>
+          EOF
+          
+          # Move all reports to combined folder
+          cp -r security-reports/* combined-reports/ 2>/dev/null || true
+
+      - name: Upload Combined Reports
+        uses: actions/upload-artifact@v4
+        with:
+          name: trivy-security-reports-all
+          path: combined-reports/
+          retention-days: 90
+
+      - name: Final Summary
+        run: |
+          echo "## 🔒 Security Scan Complete" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "All Trivy security reports have been generated and uploaded." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "### 📥 Download Reports" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "1. Go to the **Actions** tab" >> $GITHUB_STEP_SUMMARY
+          echo "2. Click on this workflow run" >> $GITHUB_STEP_SUMMARY
+          echo "3. Scroll down to **Artifacts**" >> $GITHUB_STEP_SUMMARY
+          echo "4. Download **trivy-security-reports-all**" >> $GITHUB_STEP_SUMMARY
+          echo "5. Open **index.html** for a complete overview" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "> 💡 Reports are also available in GitHub Security tab under Code Scanning Alerts" >> $GITHUB_STEP_SUMMARY

@@ -1,0 +1,46 @@
+{{/*
+=============================================================================
+configmap - shared configuration for all services
+contains database, kafka, and service discovery settings
+=============================================================================
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-config
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+data:
+  # database configuration
+  # host and port for postgresql connection
+  DB_HOST: {{ include "test-workflow.postgresql.host" . | quote }}
+  DB_PORT: {{ include "test-workflow.postgresql.port" . | quote }}
+  DB_NAME: {{ include "test-workflow.postgresql.database" . | quote }}
+  DB_USER: {{ include "test-workflow.postgresql.username" . | quote }}
+
+  # kafka configuration
+  # bootstrap servers for kafka producer/consumer
+  KAFKA_BOOTSTRAP_SERVERS: {{ include "test-workflow.kafka.brokers" . | quote }}
+
+  # service discovery configuration
+  # grpc addresses for inter-service communication
+  ORDER_SERVICE_ADDR: {{ include "test-workflow.orderService.address" . | quote }}
+  INVENTORY_SERVICE_ADDR: {{ include "test-workflow.inventoryService.address" . | quote }}
+  NOTIFICATION_SERVICE_ADDR: {{ include "test-workflow.notificationService.address" . | quote }}
+
+  # api gateway configuration
+  {{- if .Values.apiGateway.enabled }}
+  GIN_MODE: {{ .Values.apiGateway.env.GIN_MODE | quote }}
+  {{- end }}
+
+  # order service configuration
+  {{- if .Values.orderService.enabled }}
+  SPRING_PROFILES_ACTIVE: {{ .Values.orderService.springProfiles | quote }}
+  JAVA_OPTS: {{ .Values.orderService.javaOpts | quote }}
+  {{- end }}
+
+  # inventory service configuration
+  {{- if .Values.inventoryService.enabled }}
+  ASPNETCORE_URLS: {{ .Values.inventoryService.aspnetUrls | quote }}
+  {{- end }}

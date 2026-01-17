@@ -1,0 +1,265 @@
+# =============================================================================
+# kustomization for production environment
+# extends base configuration with production-grade settings
+# includes high availability, security, and monitoring
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# metadata for the kustomization
+metadata:
+  name: test-workflow-production
+
+# namespace for resources
+namespace: flux-system
+
+# base configuration to extend
+resources:
+  - ../../base
+
+# patches to apply to base resources
+patches:
+  # patch the helmrelease with production values
+  - target:
+      kind: HelmRelease
+      name: test-workflow
+    patch: |
+      - op: replace
+        path: /spec/values
+        value:
+          # global settings for production
+          global:
+            imageRegistry: ghcr.io/sabinghosty19/test-workflow
+            # use specific version tag for production - no latest!
+            imageTag: "v1.0"
+            imagePullPolicy: IfNotPresent
+            commonLabels:
+              environment: production
+
+          # high availability replicas for production
+          apiGateway:
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 2
+            autoscaling:
+              enabled: true
+              minReplicas: 3
+              maxReplicas: 10
+              targetCPUUtilizationPercentage: 70
+            # anti-affinity to spread pods across nodes
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: api-gateway
+                      topologyKey: kubernetes.io/hostname
+
+          orderService:
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: 200m
+                memory: 512Mi
+              limits:
+                cpu: 1000m
+                memory: 1Gi
+            javaOpts: "-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200"
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 2
+            autoscaling:
+              enabled: true
+              minReplicas: 3
+              maxReplicas: 15
+              targetCPUUtilizationPercentage: 70
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: order-service
+                      topologyKey: kubernetes.io/hostname
+
+          inventoryService:
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: 200m
+                memory: 256Mi
+              limits:
+                cpu: 1000m
+                memory: 512Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 2
+            autoscaling:
+              enabled: true
+              minReplicas: 3
+              maxReplicas: 15
+              targetCPUUtilizationPercentage: 70
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: inventory-service
+                      topologyKey: kubernetes.io/hostname
+
+          notificationService:
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 2
+            autoscaling:
+              enabled: true
+              minReplicas: 3
+              maxReplicas: 10
+              targetCPUUtilizationPercentage: 70
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: notification-service
+                      topologyKey: kubernetes.io/hostname
+
+          frontend:
+            replicaCount: 3
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 2
+            autoscaling:
+              enabled: true
+              minReplicas: 3
+              maxReplicas: 10
+              targetCPUUtilizationPercentage: 70
+            affinity:
+              podAntiAffinity:
+                preferredDuringSchedulingIgnoredDuringExecution:
+                  - weight: 100
+                    podAffinityTerm:
+                      labelSelector:
+                        matchLabels:
+                          app.kubernetes.io/component: frontend
+                      topologyKey: kubernetes.io/hostname
+
+          # production ingress with tls
+          ingress:
+            enabled: true
+            className: nginx
+            annotations:
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+              nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+              nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+              nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+              cert-manager.io/cluster-issuer: "letsencrypt-prod"
+            hosts:
+              - host: test-workflow.example.com
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service: frontend
+                    port: 80
+                  - path: /api
+                    pathType: Prefix
+                    service: api-gateway
+                    port: 8080
+            tls:
+              - secretName: test-workflow-tls
+                hosts:
+                  - test-workflow.example.com
+
+          # production database with high availability
+          postgresql:
+            enabled: true
+            primary:
+              persistence:
+                size: 50Gi
+                storageClass: fast-ssd
+              resources:
+                requests:
+                  cpu: 500m
+                  memory: 1Gi
+                limits:
+                  cpu: 2000m
+                  memory: 4Gi
+
+          # production kafka with replication
+          kafka:
+            enabled: true
+            persistence:
+              size: 50Gi
+              storageClass: fast-ssd
+            resources:
+              requests:
+                cpu: 500m
+                memory: 1Gi
+              limits:
+                cpu: 2000m
+                memory: 4Gi
+            replicaCount: 3
+            defaultReplicationFactor: 3
+
+          # strict network policies for production
+          networkPolicies:
+            enabled: true
+            defaultDeny: true
+            allowDnsEgress: true
+
+          # enable full monitoring in production
+          monitoring:
+            serviceMonitor:
+              enabled: true
+              interval: 15s
+            grafanaDashboard:
+              enabled: true
+
+  # patch namespace with production label and strict security
+  - target:
+      kind: Namespace
+      name: test-workflow
+    patch: |
+      - op: add
+        path: /metadata/labels/environment
+        value: production
+      - op: replace
+        path: /metadata/labels/pod-security.kubernetes.io~1enforce
+        value: restricted
+
+# name suffix for production resources
+nameSuffix: -prod
+
+# common labels for production
+commonLabels:
+  environment: production

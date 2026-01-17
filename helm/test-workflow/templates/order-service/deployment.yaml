@@ -1,0 +1,109 @@
+{{/*
+=============================================================================
+order-service deployment
+java spring boot service for order management with kafka integration
+=============================================================================
+*/}}
+{{- if .Values.orderService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-order-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: order-service
+spec:
+  # number of replicas for high availability
+  replicas: {{ .Values.orderService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: order-service
+  template:
+    metadata:
+      labels:
+        {{- include "test-workflow.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: order-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "test-workflow.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "test-workflow.serviceAccountName" . }}
+      # pod security context
+      {{- with .Values.orderService.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: order-service
+          # container image with tag
+          image: {{ include "test-workflow.image" (dict "global" .Values.global "service" .Values.orderService) }}
+          imagePullPolicy: {{ include "test-workflow.imagePullPolicy" (dict "global" .Values.global "service" .Values.orderService) }}
+          # container security context
+          {{- with .Values.orderService.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # http port for spring boot actuator
+            - name: http
+              containerPort: {{ .Values.orderService.service.httpPort }}
+              protocol: TCP
+            # grpc port for inter-service communication
+            - name: grpc
+              containerPort: {{ .Values.orderService.service.grpcPort }}
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: {{ include "test-workflow.fullname" . }}-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "test-workflow.fullname" . }}-db-secret
+                  key: DB_PASSWORD
+            # jvm options for memory tuning
+            - name: JAVA_OPTS
+              value: {{ .Values.orderService.javaOpts | quote }}
+          # liveness probe - uses spring boot actuator
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.orderService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.orderService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.orderService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.orderService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.orderService.healthCheck.failureThreshold }}
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.orderService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.orderService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.orderService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.orderService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.orderService.healthCheck.failureThreshold }}
+          # resource requests and limits - java needs more memory
+          resources:
+            {{- toYaml .Values.orderService.resources | nindent 12 }}
+      # node selector for pod scheduling
+      {{- with .Values.orderService.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # affinity rules for pod scheduling
+      {{- with .Values.orderService.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # tolerations for tainted nodes
+      {{- with .Values.orderService.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

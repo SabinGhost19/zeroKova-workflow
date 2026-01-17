@@ -1,0 +1,27 @@
+# =============================================================================
+# kustomization for flux base configuration
+# aggregates all base flux resources for test-workflow
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# metadata for the kustomization
+metadata:
+  name: test-workflow-base
+
+# namespace for resources that don't specify one
+namespace: flux-system
+
+# resources to include in this kustomization
+resources:
+  # git repository source - defines where to fetch the chart
+  - source.yaml
+  # helm release - defines how to deploy the chart
+  - helmrelease.yaml
+  # namespace - creates the target namespace
+  - namespace.yaml
+
+# common labels to add to all resources
+commonLabels:
+  app.kubernetes.io/part-of: test-workflow
+  app.kubernetes.io/managed-by: flux

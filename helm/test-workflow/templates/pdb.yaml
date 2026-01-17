@@ -1,0 +1,112 @@
+{{/*
+=============================================================================
+pod disruption budgets for high availability
+ensures minimum number of pods available during voluntary disruptions
+=============================================================================
+*/}}
+
+{{/*
+api-gateway pdb
+*/}}
+{{- if and .Values.apiGateway.enabled .Values.apiGateway.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-api-gateway
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-gateway
+spec:
+  # minimum available pods during disruption
+  minAvailable: {{ .Values.apiGateway.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api-gateway
+{{- end }}
+
+{{/*
+order-service pdb
+*/}}
+{{- if and .Values.orderService.enabled .Values.orderService.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-order-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: order-service
+spec:
+  minAvailable: {{ .Values.orderService.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: order-service
+{{- end }}
+
+{{/*
+inventory-service pdb
+*/}}
+{{- if and .Values.inventoryService.enabled .Values.inventoryService.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-inventory-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: inventory-service
+spec:
+  minAvailable: {{ .Values.inventoryService.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: inventory-service
+{{- end }}
+
+{{/*
+notification-service pdb
+*/}}
+{{- if and .Values.notificationService.enabled .Values.notificationService.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-notification-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: notification-service
+spec:
+  minAvailable: {{ .Values.notificationService.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: notification-service
+{{- end }}
+
+{{/*
+frontend pdb
+*/}}
+{{- if and .Values.frontend.enabled .Values.frontend.podDisruptionBudget.enabled }}
+---
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-frontend
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: {{ .Values.frontend.podDisruptionBudget.minAvailable }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+{{- end }}

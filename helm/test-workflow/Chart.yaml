@@ -1,0 +1,88 @@
+# =============================================================================
+# helm chart metadata for test-workflow microservices application
+# this is a parent chart that bundles all microservices as subcharts
+# =============================================================================
+
+apiVersion: v2
+
+# chart name - used as the release name prefix
+name: test-workflow
+
+# chart description displayed in helm search and hub
+description: |
+  A comprehensive microservices application demonstrating zero trust security
+  patterns in kubernetes. includes api gateway, order service, inventory service,
+  notification service, frontend, and supporting infrastructure.
+
+# chart type - application chart (not library)
+type: application
+
+# chart version - follows semver, independent of app version
+# increment this when making changes to the chart itself
+version: 1.0.0
+
+# application version - the version of the application being deployed
+# this should match the docker image tag
+appVersion: "v1.0"
+
+# minimum kubernetes version required
+kubeVersion: ">=1.23.0-0"
+
+# chart maintainers
+maintainers:
+  - name: sabinghosty19
+    url: https://github.com/sabinghosty19
+
+# chart keywords for search
+keywords:
+  - microservices
+  - zero-trust
+  - kubernetes
+  - grpc
+  - kafka
+  - postgresql
+  - react
+  - go
+  - java
+  - dotnet
+  - ruby
+
+# chart home page
+home: https://github.com/sabinghosty19/test-workflow
+
+# chart source code repository
+sources:
+  - https://github.com/sabinghosty19/test-workflow
+
+# chart icon (optional)
+# icon: https://example.com/icon.png
+
+# dependencies - external charts this chart depends on
+# these are optional and can be enabled/disabled in values.yaml
+dependencies:
+  # postgresql database - bitnami chart
+  - name: postgresql
+    version: "14.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: postgresql.enabled
+    alias: postgresql
+
+  # kafka message broker - bitnami chart
+  - name: kafka
+    version: "26.0.0"
+    repository: "https://charts.bitnami.com/bitnami"
+    condition: kafka.enabled
+    alias: kafka
+
+# annotations for additional metadata
+annotations:
+  # artifact hub category
+  artifacthub.io/category: integration-delivery
+  # license information
+  artifacthub.io/license: MIT
+  # links to documentation
+  artifacthub.io/links: |
+    - name: documentation
+      url: https://github.com/sabinghosty19/test-workflow#readme
+    - name: source
+      url: https://github.com/sabinghosty19/test-workflow

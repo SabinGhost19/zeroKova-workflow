@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "github.com/test-workflow/proto/common";
+option java_package = "com.testworkflow.proto";
+option csharp_namespace = "TestWorkflow.Proto";
+
+// Common messages used across services
+
+message Empty {}
+
+message StatusResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}

@@ -1,0 +1,160 @@
+# =============================================================================
+# kustomization for staging environment
+# extends base configuration with staging-specific settings
+# mirrors production configuration for testing
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# metadata for the kustomization
+metadata:
+  name: test-workflow-staging
+
+# namespace for resources
+namespace: flux-system
+
+# base configuration to extend
+resources:
+  - ../../base
+
+# patches to apply to base resources
+patches:
+  # patch the helmrelease with staging values
+  - target:
+      kind: HelmRelease
+      name: test-workflow
+    patch: |
+      - op: replace
+        path: /spec/values
+        value:
+          # global settings for staging
+          global:
+            imageRegistry: ghcr.io/sabinghosty19/test-workflow
+            imageTag: "v1.0"
+            imagePullPolicy: IfNotPresent
+            commonLabels:
+              environment: staging
+
+          # moderate replicas for staging - test load balancing
+          apiGateway:
+            replicaCount: 2
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 1
+
+          orderService:
+            replicaCount: 2
+            resources:
+              requests:
+                cpu: 100m
+                memory: 256Mi
+              limits:
+                cpu: 500m
+                memory: 512Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 1
+
+          inventoryService:
+            replicaCount: 2
+            resources:
+              requests:
+                cpu: 100m
+                memory: 128Mi
+              limits:
+                cpu: 500m
+                memory: 256Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 1
+
+          notificationService:
+            replicaCount: 2
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 200m
+                memory: 128Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 1
+
+          frontend:
+            replicaCount: 2
+            resources:
+              requests:
+                cpu: 25m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
+            podDisruptionBudget:
+              enabled: true
+              minAvailable: 1
+
+          # staging ingress - use staging domain
+          ingress:
+            enabled: true
+            className: nginx
+            annotations:
+              nginx.ingress.kubernetes.io/ssl-redirect: "true"
+            hosts:
+              - host: test-workflow.staging.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service: frontend
+                    port: 80
+                  - path: /api
+                    pathType: Prefix
+                    service: api-gateway
+                    port: 8080
+
+          # moderate database for staging
+          postgresql:
+            enabled: true
+            primary:
+              persistence:
+                size: 5Gi
+
+          # moderate kafka for staging
+          kafka:
+            enabled: true
+            persistence:
+              size: 5Gi
+
+          # enable network policies in staging to test security
+          networkPolicies:
+            enabled: true
+            defaultDeny: true
+
+          # enable monitoring in staging
+          monitoring:
+            serviceMonitor:
+              enabled: true
+              interval: 30s
+
+  # patch namespace with staging label
+  - target:
+      kind: Namespace
+      name: test-workflow
+    patch: |
+      - op: add
+        path: /metadata/labels/environment
+        value: staging
+
+# name suffix for staging resources
+nameSuffix: -staging
+
+# common labels for staging
+commonLabels:
+  environment: staging

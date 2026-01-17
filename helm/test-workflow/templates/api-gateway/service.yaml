@@ -1,0 +1,30 @@
+{{/*
+=============================================================================
+api-gateway service
+exposes the api gateway deployment within the cluster
+=============================================================================
+*/}}
+{{- if .Values.apiGateway.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-api-gateway
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-gateway
+spec:
+  type: {{ .Values.apiGateway.service.type }}
+  ports:
+    # http port for rest api traffic
+    - port: {{ .Values.apiGateway.service.port }}
+      targetPort: http
+      protocol: TCP
+      name: http
+      {{- if and (eq .Values.apiGateway.service.type "NodePort") .Values.apiGateway.service.nodePort }}
+      nodePort: {{ .Values.apiGateway.service.nodePort }}
+      {{- end }}
+  selector:
+    {{- include "test-workflow.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: api-gateway
+{{- end }}

@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: app-config
+  namespace: test-workflow
+data:
+  DB_HOST: "postgres"
+  DB_PORT: "5432"
+  DB_NAME: "testworkflow"
+  KAFKA_BOOTSTRAP_SERVERS: "kafka:9092"
+  ORDER_SERVICE_ADDR: "order-service:50051"
+  INVENTORY_SERVICE_ADDR: "inventory-service:50052"
+  NOTIFICATION_SERVICE_ADDR: "notification-service:50053"

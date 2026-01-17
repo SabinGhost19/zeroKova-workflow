@@ -1,0 +1,153 @@
+# =============================================================================
+# kustomization for development environment
+# extends base configuration with development-specific settings
+# =============================================================================
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# metadata for the kustomization
+metadata:
+  name: test-workflow-development
+
+# namespace for resources
+namespace: flux-system
+
+# base configuration to extend
+resources:
+  - ../../base
+
+# patches to apply to base resources
+patches:
+  # patch the helmrelease with development values
+  - target:
+      kind: HelmRelease
+      name: test-workflow
+    patch: |
+      - op: replace
+        path: /spec/values
+        value:
+          # global settings for development
+          global:
+            imageRegistry: ghcr.io/sabinghosty19/test-workflow
+            # use latest tag for development to always get newest images
+            imageTag: "latest"
+            imagePullPolicy: Always
+            commonLabels:
+              environment: development
+
+          # minimal replicas for development - save resources
+          apiGateway:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 25m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
+
+          orderService:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 50m
+                memory: 128Mi
+              limits:
+                cpu: 250m
+                memory: 256Mi
+
+          inventoryService:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 50m
+                memory: 64Mi
+              limits:
+                cpu: 250m
+                memory: 128Mi
+
+          notificationService:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 25m
+                memory: 32Mi
+              limits:
+                cpu: 100m
+                memory: 64Mi
+
+          frontend:
+            replicaCount: 1
+            resources:
+              requests:
+                cpu: 10m
+                memory: 16Mi
+              limits:
+                cpu: 50m
+                memory: 32Mi
+
+          # development ingress - use local domain
+          ingress:
+            enabled: true
+            className: nginx
+            hosts:
+              - host: test-workflow.dev.local
+                paths:
+                  - path: /
+                    pathType: Prefix
+                    service: frontend
+                    port: 80
+                  - path: /api
+                    pathType: Prefix
+                    service: api-gateway
+                    port: 8080
+
+          # minimal database for development
+          postgresql:
+            enabled: true
+            primary:
+              persistence:
+                size: 1Gi
+
+          # minimal kafka for development
+          kafka:
+            enabled: true
+            persistence:
+              size: 1Gi
+
+          # disable network policies for easier debugging
+          networkPolicies:
+            enabled: false
+
+          # disable autoscaling in development
+          apiGateway:
+            autoscaling:
+              enabled: false
+          orderService:
+            autoscaling:
+              enabled: false
+          inventoryService:
+            autoscaling:
+              enabled: false
+          notificationService:
+            autoscaling:
+              enabled: false
+          frontend:
+            autoscaling:
+              enabled: false
+
+  # patch namespace with development label
+  - target:
+      kind: Namespace
+      name: test-workflow
+    patch: |
+      - op: add
+        path: /metadata/labels/environment
+        value: development
+
+# name suffix for development resources
+nameSuffix: -dev
+
+# common labels for development
+commonLabels:
+  environment: development

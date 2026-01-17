@@ -1,0 +1,60 @@
+# =============================================================================
+# gitrepository source for flux cd
+# defines the git repository that contains the helm chart
+# flux will monitor this repository for changes
+# =============================================================================
+apiVersion: source.toolkit.fluxcd.io/v1
+kind: GitRepository
+metadata:
+  # source name - referenced by helmrelease
+  name: test-workflow
+  # namespace where flux controllers are installed
+  namespace: flux-system
+spec:
+  # sync interval - how often to check for changes
+  # adjust based on your deployment frequency
+  interval: 1m
+
+  # git repository url
+  # for private repos, create a secret with ssh key or token
+  url: https://github.com/sabinghosty19/test-workflow.git
+
+  # branch to track
+  ref:
+    branch: main
+
+  # optional: ignore files that don't affect the helm chart
+  ignore: |
+    # exclude all files except helm chart
+    /*
+    !/helm/
+    !/flux/
+
+  # optional: secret for private repository authentication
+  # uncomment and create the secret if your repo is private
+  # secretRef:
+  #   name: test-workflow-git-credentials
+
+---
+# =============================================================================
+# optional: secret for private git repository authentication
+# uncomment and configure if your repository is private
+# =============================================================================
+# apiVersion: v1
+# kind: Secret
+# metadata:
+#   name: test-workflow-git-credentials
+#   namespace: flux-system
+# type: Opaque
+# stringData:
+#   # for https authentication
+#   username: git
+#   password: <github-personal-access-token>
+#
+#   # or for ssh authentication (use 'identity' key)
+#   # identity: |
+#   #   -----BEGIN OPENSSH PRIVATE KEY-----
+#   #   ...
+#   #   -----END OPENSSH PRIVATE KEY-----
+#   # known_hosts: |
+#   #   github.com ssh-rsa AAAA...

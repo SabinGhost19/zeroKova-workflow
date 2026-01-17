@@ -1,0 +1,32 @@
+{{/*
+=============================================================================
+order-service service
+exposes http and grpc ports for the order service
+=============================================================================
+*/}}
+{{- if .Values.orderService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-order-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: order-service
+spec:
+  type: {{ .Values.orderService.service.type }}
+  ports:
+    # http port for spring boot actuator and rest api
+    - port: {{ .Values.orderService.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for inter-service communication
+    - port: {{ .Values.orderService.service.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "test-workflow.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: order-service
+{{- end }}

@@ -1,0 +1,104 @@
+================================================================================
+                         TEST-WORKFLOW DEPLOYMENT
+================================================================================
+
+thank you for installing {{ .Chart.Name }}!
+
+chart version: {{ .Chart.Version }}
+app version: {{ .Chart.AppVersion }}
+release name: {{ .Release.Name }}
+namespace: {{ include "test-workflow.namespace" . }}
+
+--------------------------------------------------------------------------------
+deployed services:
+--------------------------------------------------------------------------------
+{{- if .Values.frontend.enabled }}
+  - frontend (react + nginx)
+{{- end }}
+{{- if .Values.apiGateway.enabled }}
+  - api-gateway (go + gin)
+{{- end }}
+{{- if .Values.orderService.enabled }}
+  - order-service (java + spring boot)
+{{- end }}
+{{- if .Values.inventoryService.enabled }}
+  - inventory-service (c# + .net core)
+{{- end }}
+{{- if .Values.notificationService.enabled }}
+  - notification-service (ruby + grpc)
+{{- end }}
+{{- if .Values.postgresql.enabled }}
+  - postgresql database
+{{- end }}
+{{- if .Values.kafka.enabled }}
+  - kafka message broker
+{{- end }}
+
+--------------------------------------------------------------------------------
+accessing the application:
+--------------------------------------------------------------------------------
+{{- if .Values.ingress.enabled }}
+{{- range .Values.ingress.hosts }}
+  http://{{ .host }}
+{{- end }}
+
+add the following to your /etc/hosts file:
+  <ingress-controller-ip> {{ (index .Values.ingress.hosts 0).host }}
+
+{{- else }}
+
+to access the application, run:
+  kubectl port-forward svc/{{ include "test-workflow.fullname" . }}-frontend {{ .Values.frontend.service.port }}:{{ .Values.frontend.service.port }} -n {{ include "test-workflow.namespace" . }}
+
+then open: http://localhost:{{ .Values.frontend.service.port }}
+
+{{- end }}
+
+--------------------------------------------------------------------------------
+api endpoints:
+--------------------------------------------------------------------------------
+{{- if .Values.apiGateway.enabled }}
+  orders:
+    - POST /api/v1/orders         - create order
+    - GET  /api/v1/orders         - list orders
+    - GET  /api/v1/orders/:id     - get order
+    - PUT  /api/v1/orders/:id/status - update status
+
+  inventory:
+    - GET  /api/v1/inventory/products     - list products
+    - POST /api/v1/inventory/products     - add product
+    - GET  /api/v1/inventory/products/:id - get stock
+
+  notifications:
+    - GET  /api/v1/notifications  - get notification history
+
+  health:
+    - GET  /health                - health check
+{{- end }}
+
+--------------------------------------------------------------------------------
+useful commands:
+--------------------------------------------------------------------------------
+  # view all pods
+  kubectl get pods -n {{ include "test-workflow.namespace" . }}
+
+  # view pod logs
+  kubectl logs -f deploy/{{ include "test-workflow.fullname" . }}-api-gateway -n {{ include "test-workflow.namespace" . }}
+
+  # view service endpoints
+  kubectl get endpoints -n {{ include "test-workflow.namespace" . }}
+
+  # view network policies
+  kubectl get networkpolicies -n {{ include "test-workflow.namespace" . }}
+
+--------------------------------------------------------------------------------
+upgrading the release:
+--------------------------------------------------------------------------------
+  helm upgrade {{ .Release.Name }} ./helm/test-workflow -n {{ include "test-workflow.namespace" . }}
+
+--------------------------------------------------------------------------------
+uninstalling the release:
+--------------------------------------------------------------------------------
+  helm uninstall {{ .Release.Name }} -n {{ include "test-workflow.namespace" . }}
+
+================================================================================

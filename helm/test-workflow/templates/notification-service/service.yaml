@@ -1,0 +1,32 @@
+{{/*
+=============================================================================
+notification-service service
+exposes http and grpc ports for the notification service
+=============================================================================
+*/}}
+{{- if .Values.notificationService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-notification-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: notification-service
+spec:
+  type: {{ .Values.notificationService.service.type }}
+  ports:
+    # http port for health checks
+    - port: {{ .Values.notificationService.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for notification delivery
+    - port: {{ .Values.notificationService.service.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "test-workflow.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: notification-service
+{{- end }}

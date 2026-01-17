@@ -1,0 +1,16 @@
+# =============================================================================
+# namespace for test-workflow application
+# creates the target namespace before any other resources are deployed
+# =============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  # namespace name - should match the target namespace in helmrelease
+  name: test-workflow
+  labels:
+    # standard kubernetes labels
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/managed-by: flux
+    # pod security standard - enforce restricted policy
+    pod-security.kubernetes.io/enforce: restricted
+    pod-security.kubernetes.io/enforce-version: latest

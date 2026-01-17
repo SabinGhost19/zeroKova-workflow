@@ -1,0 +1,124 @@
+# =============================================================================
+# CI Helm Pipeline - Helm chart validation and linting
+# =============================================================================
+
+name: CI - Helm Validation
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - 'helm/**'
+
+  workflow_dispatch:
+
+concurrency:
+  group: helm-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # Validate Helm chart
+  # ===========================================================================
+  validate-helm:
+    name: Validate Helm Chart
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: 'v3.14.0'
+
+      - name: Add Helm repositories
+        run: |
+          helm repo add bitnami https://charts.bitnami.com/bitnami
+          helm repo update
+
+      - name: Update Helm dependencies
+        run: |
+          if [ -d "helm/test-workflow" ]; then
+            cd helm/test-workflow
+            helm dependency update
+          fi
+
+      - name: Lint Helm chart
+        run: |
+          if [ -d "helm/test-workflow" ]; then
+            echo "::group::Helm Lint (strict mode)"
+            helm lint helm/test-workflow --strict
+            echo "::endgroup::"
+          else
+            echo "⚠️ Helm chart not found at helm/test-workflow"
+            exit 1
+          fi
+
+      - name: Template Helm chart (default values)
+        run: |
+          if [ -d "helm/test-workflow" ]; then
+            echo "::group::Helm Template (default values)"
+            helm template test-workflow helm/test-workflow --debug > /dev/null
+            echo "✅ Templates rendered successfully with default values"
+            echo "::endgroup::"
+          fi
+
+      - name: Template Helm chart (production values)
+        run: |
+          if [ -f "helm/test-workflow/values-production.yaml" ]; then
+            echo "::group::Helm Template (production values)"
+            helm template test-workflow helm/test-workflow \
+              -f helm/test-workflow/values-production.yaml \
+              --debug > /dev/null
+            echo "✅ Templates rendered successfully with production values"
+            echo "::endgroup::"
+          else
+            echo "ℹ️ Production values file not found, skipping"
+          fi
+
+      - name: Validate Kubernetes manifests
+        run: |
+          if [ -d "helm/test-workflow" ]; then
+            echo "::group::Validate rendered manifests"
+            helm template test-workflow helm/test-workflow > rendered-manifests.yaml
+            
+            # Basic YAML validation
+            if command -v python3 &> /dev/null; then
+              python3 -c "import yaml; yaml.safe_load_all(open('rendered-manifests.yaml'))" && \
+                echo "✅ YAML syntax is valid"
+            fi
+            echo "::endgroup::"
+          fi
+
+      - name: Check for deprecated APIs
+        run: |
+          # Install pluto for deprecated API detection
+          curl -L -o pluto.tar.gz https://github.com/FairwindsOps/pluto/releases/download/v5.19.0/pluto_5.19.0_linux_amd64.tar.gz
+          tar -xzf pluto.tar.gz
+          chmod +x pluto
+          
+          if [ -d "helm/test-workflow" ]; then
+            echo "::group::Checking for deprecated Kubernetes APIs"
+            helm template test-workflow helm/test-workflow | ./pluto detect - || true
+            echo "::endgroup::"
+          fi
+
+      - name: Helm Validation Summary
+        run: |
+          echo "### ⎈ Helm Chart Validation" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Lint (strict) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Template (default) | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| YAML Validation | ✅ Passed |" >> $GITHUB_STEP_SUMMARY
+          echo "| Deprecated APIs | ✅ Checked |" >> $GITHUB_STEP_SUMMARY

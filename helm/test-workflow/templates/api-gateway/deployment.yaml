@@ -1,0 +1,95 @@
+{{/*
+=============================================================================
+api-gateway deployment
+go-based rest api gateway that routes requests to backend grpc services
+=============================================================================
+*/}}
+{{- if .Values.apiGateway.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-api-gateway
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: api-gateway
+spec:
+  # number of replicas - adjust based on load requirements
+  replicas: {{ .Values.apiGateway.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api-gateway
+  template:
+    metadata:
+      labels:
+        {{- include "test-workflow.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: api-gateway
+        tier: gateway
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "test-workflow.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "test-workflow.serviceAccountName" . }}
+      # pod security context
+      {{- with .Values.apiGateway.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: api-gateway
+          # container image with tag
+          image: {{ include "test-workflow.image" (dict "global" .Values.global "service" .Values.apiGateway) }}
+          imagePullPolicy: {{ include "test-workflow.imagePullPolicy" (dict "global" .Values.global "service" .Values.apiGateway) }}
+          # container security context
+          {{- with .Values.apiGateway.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # http port for rest api
+            - name: http
+              containerPort: {{ .Values.apiGateway.service.port }}
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: {{ include "test-workflow.fullname" . }}-config
+          # liveness probe - restarts container if unhealthy
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.apiGateway.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.apiGateway.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.apiGateway.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.apiGateway.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.apiGateway.healthCheck.failureThreshold }}
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.apiGateway.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.apiGateway.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.apiGateway.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.apiGateway.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.apiGateway.healthCheck.failureThreshold }}
+          # resource requests and limits
+          resources:
+            {{- toYaml .Values.apiGateway.resources | nindent 12 }}
+      # node selector for pod scheduling
+      {{- with .Values.apiGateway.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # affinity rules for pod scheduling
+      {{- with .Values.apiGateway.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # tolerations for tainted nodes
+      {{- with .Values.apiGateway.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

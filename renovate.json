@@ -1,0 +1,134 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:recommended",
+    ":dependencyDashboard",
+    ":semanticCommits",
+    ":automergeMinor",
+    ":automergePatch"
+  ],
+  "description": "Renovate configuration for test-workflow project",
+  "timezone": "Europe/Bucharest",
+  "schedule": ["every weekday"],
+  "labels": ["dependencies", "renovate"],
+  "prHourlyLimit": 5,
+  "prConcurrentLimit": 10,
+  "minimumReleaseAge": "3 days",
+  "automerge": true,
+  "automergeType": "pr",
+  "platformAutomerge": true,
+  "automergeStrategy": "squash",
+  "packageRules": [
+    {
+      "description": "Automerge patch and minor updates",
+      "matchUpdateTypes": ["patch", "minor"],
+      "automerge": true,
+      "automergeType": "pr"
+    },
+    {
+      "description": "Major updates require manual review",
+      "matchUpdateTypes": ["major"],
+      "automerge": false,
+      "labels": ["dependencies", "major-update", "needs-review"]
+    },
+    {
+      "description": "Group all non-major Go dependencies",
+      "matchManagers": ["gomod"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "go-dependencies",
+      "groupSlug": "go-deps"
+    },
+    {
+      "description": "Group all non-major npm dependencies",
+      "matchManagers": ["npm"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "npm-dependencies",
+      "groupSlug": "npm-deps"
+    },
+    {
+      "description": "Group all non-major Maven dependencies",
+      "matchManagers": ["maven"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "maven-dependencies",
+      "groupSlug": "maven-deps"
+    },
+    {
+      "description": "Group all non-major NuGet dependencies",
+      "matchManagers": ["nuget"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "nuget-dependencies",
+      "groupSlug": "nuget-deps"
+    },
+    {
+      "description": "Group all non-major Ruby dependencies",
+      "matchManagers": ["bundler"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "ruby-dependencies",
+      "groupSlug": "ruby-deps"
+    },
+    {
+      "description": "Group all Docker image updates",
+      "matchManagers": ["dockerfile"],
+      "matchUpdateTypes": ["patch", "minor"],
+      "groupName": "docker-images",
+      "groupSlug": "docker"
+    },
+    {
+      "description": "Group all GitHub Actions updates",
+      "matchManagers": ["github-actions"],
+      "groupName": "github-actions",
+      "groupSlug": "gha",
+      "automerge": true
+    },
+    {
+      "description": "Group Helm chart updates",
+      "matchManagers": ["helmv3"],
+      "groupName": "helm-charts",
+      "groupSlug": "helm"
+    },
+    {
+      "description": "Security updates - expedited",
+      "matchUpdateTypes": ["patch"],
+      "matchCategories": ["security"],
+      "labels": ["security", "dependencies"],
+      "automerge": true,
+      "minimumReleaseAge": "0 days",
+      "prPriority": 10
+    }
+  ],
+  "lockFileMaintenance": {
+    "enabled": true,
+    "schedule": ["before 6am on monday"],
+    "automerge": true
+  },
+  "vulnerabilityAlerts": {
+    "enabled": true,
+    "labels": ["security", "vulnerability"],
+    "automerge": true
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update Helm chart versions in values files",
+      "fileMatch": ["helm/.+\\.ya?ml$"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\n.*?version:\\s*[\"']?(?<currentValue>[^\"'\\s]+)[\"']?"
+      ]
+    },
+    {
+      "customType": "regex",
+      "description": "Update container image tags",
+      "fileMatch": ["k8s/.+\\.ya?ml$", "flux/.+\\.ya?ml$"],
+      "matchStrings": [
+        "image:\\s*(?<depName>[^:]+):(?<currentValue>[^\\s\"']+)"
+      ],
+      "datasourceTemplate": "docker"
+    }
+  ],
+  "ignoreDeps": [],
+  "ignorePaths": [
+    "**/node_modules/**",
+    "**/vendor/**",
+    "**/testdata/**"
+  ]
+}

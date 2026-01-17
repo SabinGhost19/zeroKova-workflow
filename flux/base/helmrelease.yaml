@@ -1,0 +1,107 @@
+# =============================================================================
+# helmrelease base configuration for test-workflow
+# this file defines the base helm release that can be customized per environment
+# use kustomize overlays to override values for different environments
+# =============================================================================
+apiVersion: helm.toolkit.fluxcd.io/v2beta2
+kind: HelmRelease
+metadata:
+  # release name - will be used as prefix for all resources
+  name: test-workflow
+  # namespace where the helmrelease resource lives
+  namespace: flux-system
+spec:
+  # interval for checking and reconciling the release
+  interval: 5m
+
+  # timeout for helm operations
+  timeout: 10m
+
+  # chart reference - points to the helm chart in git repository
+  chart:
+    spec:
+      # path to the chart within the git repository
+      chart: helm/test-workflow
+      # source reference - must match the gitrepository name
+      sourceRef:
+        kind: GitRepository
+        name: test-workflow
+        namespace: flux-system
+      # reconcile interval for the chart
+      interval: 1m
+
+  # target namespace for the deployed resources
+  targetNamespace: test-workflow
+
+  # install configuration
+  install:
+    # create namespace if it doesn't exist
+    createNamespace: true
+    # remediation settings for failed installs
+    remediation:
+      # number of retries before giving up
+      retries: 3
+
+  # upgrade configuration
+  upgrade:
+    # cleanup crds on upgrade
+    cleanupOnFail: true
+    # remediation settings for failed upgrades
+    remediation:
+      retries: 3
+      # rollback to last successful release on failure
+      remediateLastFailure: true
+
+  # rollback configuration
+  rollback:
+    # timeout for rollback
+    timeout: 5m
+    # cleanup on failed rollback
+    cleanupOnFail: true
+
+  # drift detection - detect and correct manual changes
+  driftDetection:
+    # mode: enabled, warn, disabled
+    mode: enabled
+    # ignore paths that are expected to change
+    ignore:
+      - paths: ["/spec/replicas"]
+        target:
+          kind: Deployment
+
+  # values to pass to the helm chart
+  # these can be overridden in environment-specific overlays
+  values:
+    # global settings
+    global:
+      imageRegistry: ghcr.io/sabinghosty19/test-workflow
+      imageTag: "v1.0"
+      imagePullPolicy: IfNotPresent
+
+    # service replica counts - base configuration
+    apiGateway:
+      replicaCount: 2
+    orderService:
+      replicaCount: 2
+    inventoryService:
+      replicaCount: 2
+    notificationService:
+      replicaCount: 2
+    frontend:
+      replicaCount: 2
+
+    # ingress configuration
+    ingress:
+      enabled: true
+      className: nginx
+
+    # infrastructure dependencies
+    postgresql:
+      enabled: true
+    kafka:
+      enabled: true
+
+    # security settings
+    networkPolicies:
+      enabled: true
+      defaultDeny: true

@@ -1,0 +1,14 @@
+source 'https://rubygems.org'
+
+gem 'grpc', '~> 1.59'
+gem 'grpc-tools', '~> 1.59'
+gem 'pg', '~> 1.5'
+gem 'sequel', '~> 5.74'
+gem 'puma', '~> 6.4'
+gem 'sinatra', '~> 3.1'
+gem 'json', '~> 2.6'
+
+group :development, :test do
+  gem 'rspec', '~> 3.12'
+  gem 'rack-test', '~> 2.1'
+end

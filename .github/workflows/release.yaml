@@ -1,0 +1,164 @@
+# =============================================================================
+# Semantic Release Pipeline
+# Automatically versions and releases based on conventional commits
+# Generates CHANGELOG.md and creates GitHub Releases with git tags
+# =============================================================================
+
+name: Release
+
+on:
+  push:
+    branches:
+      - main
+
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Dry run (no actual release)'
+        required: false
+        default: 'false'
+        type: boolean
+
+# Only allow one release at a time
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  issues: write
+  pull-requests: write
+  packages: write
+
+jobs:
+  # ===========================================================================
+  # Semantic Release
+  # ===========================================================================
+  release:
+    name: Semantic Release
+    runs-on: ubuntu-latest
+    outputs:
+      new-release: ${{ steps.semantic.outputs.new_release_published }}
+      new-version: ${{ steps.semantic.outputs.new_release_version }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install semantic-release and plugins
+        run: |
+          npm install -g semantic-release \
+            @semantic-release/changelog \
+            @semantic-release/git \
+            @semantic-release/github \
+            conventional-changelog-conventionalcommits
+
+      - name: Verify semantic-release configuration
+        run: |
+          echo "::group::Semantic Release Config"
+          cat .releaserc.json 2>/dev/null || cat .releaserc 2>/dev/null || echo "Using default config"
+          echo "::endgroup::"
+
+      - name: Run Semantic Release
+        id: semantic
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [[ "${{ github.event.inputs.dry_run }}" == "true" ]]; then
+            echo "🔍 Running in dry-run mode..."
+            npx semantic-release --dry-run
+          else
+            npx semantic-release
+          fi
+
+      - name: Release Summary
+        if: steps.semantic.outputs.new_release_published == 'true'
+        run: |
+          echo "## 🚀 New Release Published!" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Property | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|----------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| **Version** | v${{ steps.semantic.outputs.new_release_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Major** | ${{ steps.semantic.outputs.new_release_major_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Minor** | ${{ steps.semantic.outputs.new_release_minor_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| **Patch** | ${{ steps.semantic.outputs.new_release_patch_version }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "📋 See [CHANGELOG.md](./CHANGELOG.md) for details" >> $GITHUB_STEP_SUMMARY
+
+      - name: No Release Summary
+        if: steps.semantic.outputs.new_release_published != 'true'
+        run: |
+          echo "## ℹ️ No New Release" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "No commits warranting a new release were found." >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "To trigger a release, use conventional commit messages:" >> $GITHUB_STEP_SUMMARY
+          echo "- \`fix:\` for patch releases" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat:\` for minor releases" >> $GITHUB_STEP_SUMMARY
+          echo "- \`feat!:\` or \`BREAKING CHANGE:\` for major releases" >> $GITHUB_STEP_SUMMARY
+
+  # ===========================================================================
+  # Tag Docker images with release version
+  # ===========================================================================
+  tag-images:
+    name: Tag Images with Version
+    runs-on: ubuntu-latest
+    needs: release
+    if: needs.release.outputs.new-release == 'true'
+    
+    strategy:
+      matrix:
+        service:
+          - api-gateway
+          - order-service
+          - inventory-service
+          - notification-service
+          - frontend
+
+    permissions:
+      packages: write
+
+    env:
+      REGISTRY: ghcr.io
+      IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/test-workflow
+
+    steps:
+      - name: Login to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Tag image with release version
+        run: |
+          VERSION="v${{ needs.release.outputs.new-version }}"
+          IMAGE="${{ env.IMAGE_PREFIX }}/${{ matrix.service }}"
+          
+          echo "::group::Tagging ${{ matrix.service }} with $VERSION"
+          
+          # Pull latest image
+          docker pull ${IMAGE}:latest || exit 0
+          
+          # Tag with version
+          docker tag ${IMAGE}:latest ${IMAGE}:${VERSION}
+          
+          # Push version tag
+          docker push ${IMAGE}:${VERSION}
+          
+          echo "✅ Tagged ${IMAGE}:${VERSION}"
+          echo "::endgroup::"
+
+      - name: Tag Summary
+        run: |
+          echo "### 🏷️ Image Tagged: ${{ matrix.service }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "Tagged \`${{ env.IMAGE_PREFIX }}/${{ matrix.service }}:v${{ needs.release.outputs.new-version }}\`" >> $GITHUB_STEP_SUMMARY

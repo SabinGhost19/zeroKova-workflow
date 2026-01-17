@@ -1,0 +1,32 @@
+{{/*
+=============================================================================
+inventory-service service
+exposes http and grpc ports for the inventory service
+=============================================================================
+*/}}
+{{- if .Values.inventoryService.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-inventory-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: inventory-service
+spec:
+  type: {{ .Values.inventoryService.service.type }}
+  ports:
+    # http port for asp.net core health checks and api
+    - port: {{ .Values.inventoryService.service.httpPort }}
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for inter-service communication
+    - port: {{ .Values.inventoryService.service.grpcPort }}
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    {{- include "test-workflow.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: inventory-service
+{{- end }}

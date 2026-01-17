@@ -1,0 +1,112 @@
+{{/*
+=============================================================================
+notification-service deployment
+ruby service for sending notifications via grpc
+=============================================================================
+*/}}
+{{- if .Values.notificationService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-notification-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: notification-service
+spec:
+  # number of replicas for high availability
+  replicas: {{ .Values.notificationService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: notification-service
+  template:
+    metadata:
+      labels:
+        {{- include "test-workflow.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: notification-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "test-workflow.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "test-workflow.serviceAccountName" . }}
+      # pod security context
+      {{- with .Values.notificationService.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: notification-service
+          # container image with tag
+          image: {{ include "test-workflow.image" (dict "global" .Values.global "service" .Values.notificationService) }}
+          imagePullPolicy: {{ include "test-workflow.imagePullPolicy" (dict "global" .Values.global "service" .Values.notificationService) }}
+          # container security context
+          {{- with .Values.notificationService.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # http port for health checks
+            - name: http
+              containerPort: {{ .Values.notificationService.service.httpPort }}
+              protocol: TCP
+            # grpc port for notification service
+            - name: grpc
+              containerPort: {{ .Values.notificationService.service.grpcPort }}
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: {{ include "test-workflow.fullname" . }}-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "test-workflow.fullname" . }}-db-secret
+                  key: DB_PASSWORD
+            # grpc port configuration
+            - name: GRPC_PORT
+              value: {{ .Values.notificationService.service.grpcPort | quote }}
+            # http port configuration for health checks
+            - name: HTTP_PORT
+              value: {{ .Values.notificationService.service.httpPort | quote }}
+          # liveness probe - checks service health
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.notificationService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.notificationService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notificationService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.notificationService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.notificationService.healthCheck.failureThreshold }}
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.notificationService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.notificationService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.notificationService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.notificationService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.notificationService.healthCheck.failureThreshold }}
+          # resource requests and limits
+          resources:
+            {{- toYaml .Values.notificationService.resources | nindent 12 }}
+      # node selector for pod scheduling
+      {{- with .Values.notificationService.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # affinity rules for pod scheduling
+      {{- with .Values.notificationService.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # tolerations for tainted nodes
+      {{- with .Values.notificationService.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

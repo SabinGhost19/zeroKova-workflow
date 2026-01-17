@@ -1,0 +1,290 @@
+{{/*
+=============================================================================
+network policies for zero trust security
+implements strict ingress rules between services
+=============================================================================
+*/}}
+{{- if .Values.networkPolicies.enabled }}
+
+{{/*
+default deny all ingress policy
+blocks all incoming traffic unless explicitly allowed
+*/}}
+{{- if .Values.networkPolicies.defaultDeny }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-default-deny
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  # apply to all pods in namespace
+  podSelector: {}
+  policyTypes:
+    - Ingress
+{{- end }}
+
+{{/*
+allow dns egress for service discovery
+required for pods to resolve service names
+*/}}
+{{- if .Values.networkPolicies.allowDnsEgress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-allow-dns
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # allow dns queries to kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+{{- end }}
+
+{{/*
+frontend network policy
+allows ingress from anywhere on port 80
+*/}}
+{{- if .Values.frontend.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-frontend
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow ingress from anywhere on http port
+    - ports:
+        - protocol: TCP
+          port: {{ .Values.frontend.service.port }}
+{{- end }}
+
+{{/*
+api-gateway network policy
+allows ingress from frontend and ingress controller
+*/}}
+{{- if .Values.apiGateway.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-api-gateway
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from frontend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: {{ .Values.apiGateway.service.port }}
+    # allow from ingress-nginx namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: {{ .Values.apiGateway.service.port }}
+{{- end }}
+
+{{/*
+order-service network policy
+allows ingress from api-gateway only
+*/}}
+{{- if .Values.orderService.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-order-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: order-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway on grpc port
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+      ports:
+        - protocol: TCP
+          port: {{ .Values.orderService.service.grpcPort }}
+        - protocol: TCP
+          port: {{ .Values.orderService.service.httpPort }}
+{{- end }}
+
+{{/*
+inventory-service network policy
+allows ingress from api-gateway and order-service
+*/}}
+{{- if .Values.inventoryService.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-inventory-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: inventory-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway and order-service
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: order-service
+      ports:
+        - protocol: TCP
+          port: {{ .Values.inventoryService.service.grpcPort }}
+        - protocol: TCP
+          port: {{ .Values.inventoryService.service.httpPort }}
+{{- end }}
+
+{{/*
+notification-service network policy
+allows ingress from api-gateway and order-service
+*/}}
+{{- if .Values.notificationService.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-notification-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: notification-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway and order-service
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: order-service
+      ports:
+        - protocol: TCP
+          port: {{ .Values.notificationService.service.grpcPort }}
+        - protocol: TCP
+          port: {{ .Values.notificationService.service.httpPort }}
+{{- end }}
+
+{{/*
+database network policy
+allows ingress from backend tier pods only
+*/}}
+{{- if .Values.postgresql.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-postgresql
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from backend tier pods
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+{{- end }}
+
+{{/*
+kafka network policy
+allows ingress from backend tier pods only
+*/}}
+{{- if .Values.kafka.enabled }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-kafka
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from backend tier pods
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: backend
+      ports:
+        - protocol: TCP
+          port: 9092
+{{- end }}
+
+{{- end }}

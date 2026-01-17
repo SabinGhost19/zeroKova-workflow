@@ -1,0 +1,672 @@
+
+# -----------------------------------------------------------------------------
+# global settings - shared across all services
+# these values are inherited by all subcharts and templates
+# -----------------------------------------------------------------------------
+global:
+  # container image registry - where images are pulled from
+  # change this to your private registry if not using ghcr
+  imageRegistry: ghcr.io/sabinghosty19/test-workflow
+
+  # image pull policy - when to pull images from registry
+  # options: Always, IfNotPresent, Never
+  # use Always for development, IfNotPresent for production
+  imagePullPolicy: IfNotPresent
+
+  # image tag - version tag for all service images
+  # this should match the ci/cd pipeline output
+  imageTag: "v1.0"
+
+  # image pull secrets - credentials for private registries
+  # create secret with: kubectl create secret docker-registry ghcr-secret ...
+  imagePullSecrets: []
+  # - name: ghcr-secret
+
+  # kubernetes namespace - where resources will be deployed
+  # leave empty to use helm release namespace
+  namespace: ""
+
+  # common labels applied to all resources
+  # useful for resource organization and selection
+  commonLabels: {}
+  #   environment: production
+  #   team: platform
+
+  # common annotations applied to all resources
+  commonAnnotations: {}
+
+# -----------------------------------------------------------------------------
+# api gateway service configuration
+# go-based rest api gateway that routes requests to backend services
+# -----------------------------------------------------------------------------
+apiGateway:
+  # enable or disable the api gateway deployment
+  enabled: true
+
+  # number of pod replicas for high availability
+  # increase for production workloads
+  replicaCount: 2
+
+  # container image settings
+  image:
+    # repository path relative to global registry
+    repository: api-gateway
+    # override global tag if needed
+    tag: ""
+    # override global pull policy if needed
+    pullPolicy: ""
+
+  # service configuration for internal cluster access
+  service:
+    # service type: ClusterIP, NodePort, LoadBalancer
+    type: ClusterIP
+    # http port for rest api
+    port: 8080
+    # optional node port when using NodePort type
+    nodePort: ""
+
+  # resource requests and limits
+  # adjust based on actual usage patterns
+  resources:
+    requests:
+      # minimum cpu allocation
+      cpu: 50m
+      # minimum memory allocation
+      memory: 64Mi
+    limits:
+      # maximum cpu allocation
+      cpu: 200m
+      # maximum memory allocation
+      memory: 128Mi
+
+  # environment variables for the container
+  # these configure service behavior
+  env:
+    # gin framework mode: debug, test, release
+    GIN_MODE: release
+
+  # health check configuration
+  healthCheck:
+    # path for liveness and readiness probes
+    path: /health
+    # initial delay before first probe
+    initialDelaySeconds: 10
+    # time between probes
+    periodSeconds: 10
+    # probe timeout
+    timeoutSeconds: 5
+    # consecutive failures before unhealthy
+    failureThreshold: 3
+
+  # pod disruption budget for high availability
+  podDisruptionBudget:
+    # enable pdb creation
+    enabled: true
+    # minimum available pods during disruption
+    minAvailable: 1
+
+  # horizontal pod autoscaler configuration
+  autoscaling:
+    # enable hpa
+    enabled: false
+    # minimum replicas
+    minReplicas: 2
+    # maximum replicas
+    maxReplicas: 10
+    # target cpu utilization percentage
+    targetCPUUtilizationPercentage: 80
+    # target memory utilization percentage (optional)
+    targetMemoryUtilizationPercentage: ""
+
+  # node selector for pod scheduling
+  nodeSelector: {}
+
+  # tolerations for pod scheduling on tainted nodes
+  tolerations: []
+
+  # affinity rules for pod scheduling
+  affinity: {}
+
+  # pod security context
+  podSecurityContext:
+    # run as non-root user
+    runAsNonRoot: true
+    # user id to run as
+    runAsUser: 1000
+    # group id
+    fsGroup: 1000
+
+  # container security context
+  securityContext:
+    # prevent privilege escalation
+    allowPrivilegeEscalation: false
+    # read-only root filesystem
+    readOnlyRootFilesystem: true
+    # drop all capabilities
+    capabilities:
+      drop:
+        - ALL
+
+# -----------------------------------------------------------------------------
+# order service configuration
+# java spring boot service for order management
+# -----------------------------------------------------------------------------
+orderService:
+  # enable or disable the order service deployment
+  enabled: true
+
+  # number of pod replicas
+  replicaCount: 2
+
+  # container image settings
+  image:
+    repository: order-service
+    tag: ""
+    pullPolicy: ""
+
+  # service configuration
+  service:
+    type: ClusterIP
+    # http port for spring boot actuator
+    httpPort: 8081
+    # grpc port for inter-service communication
+    grpcPort: 50051
+
+  # resource requests and limits
+  # java services typically need more memory
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  # jvm options for memory tuning
+  javaOpts: "-Xms128m -Xmx384m -XX:+UseG1GC"
+
+  # spring profiles to activate
+  springProfiles: "kubernetes"
+
+  # health check configuration
+  healthCheck:
+    # spring boot actuator health endpoint
+    path: /actuator/health
+    initialDelaySeconds: 30
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # autoscaling configuration
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# -----------------------------------------------------------------------------
+# inventory service configuration
+# dotnet core service for inventory management
+# -----------------------------------------------------------------------------
+inventoryService:
+  # enable or disable the inventory service deployment
+  enabled: true
+
+  # number of pod replicas
+  replicaCount: 2
+
+  # container image settings
+  image:
+    repository: inventory-service
+    tag: ""
+    pullPolicy: ""
+
+  # service configuration
+  service:
+    type: ClusterIP
+    # http port for asp.net core
+    httpPort: 8082
+    # grpc port for inter-service communication
+    grpcPort: 50052
+
+  # resource requests and limits
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+
+  # asp.net core urls configuration
+  aspnetUrls: "http://+:8082"
+
+  # health check configuration
+  healthCheck:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # autoscaling configuration
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# -----------------------------------------------------------------------------
+# notification service configuration
+# ruby service for sending notifications
+# -----------------------------------------------------------------------------
+notificationService:
+  # enable or disable the notification service deployment
+  enabled: true
+
+  # number of pod replicas
+  replicaCount: 2
+
+  # container image settings
+  image:
+    repository: notification-service
+    tag: ""
+    pullPolicy: ""
+
+  # service configuration
+  service:
+    type: ClusterIP
+    # http port for health checks
+    httpPort: 8083
+    # grpc port for inter-service communication
+    grpcPort: 50053
+
+  # resource requests and limits
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  # health check configuration
+  healthCheck:
+    path: /health
+    initialDelaySeconds: 15
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # autoscaling configuration
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    fsGroup: 1000
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: false
+    capabilities:
+      drop:
+        - ALL
+
+# -----------------------------------------------------------------------------
+# frontend configuration
+# react spa served by nginx
+# -----------------------------------------------------------------------------
+frontend:
+  # enable or disable the frontend deployment
+  enabled: true
+
+  # number of pod replicas
+  replicaCount: 2
+
+  # container image settings
+  image:
+    repository: frontend
+    tag: ""
+    pullPolicy: ""
+
+  # service configuration
+  service:
+    type: ClusterIP
+    # http port for nginx
+    port: 80
+
+  # resource requests and limits
+  # nginx is lightweight
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+  # health check configuration
+  healthCheck:
+    path: /health
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+  # pod disruption budget
+  podDisruptionBudget:
+    enabled: true
+    minAvailable: 1
+
+  # autoscaling configuration
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 80
+
+  nodeSelector: {}
+  tolerations: []
+  affinity: {}
+
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 101
+    fsGroup: 101
+
+  securityContext:
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+# -----------------------------------------------------------------------------
+# ingress configuration
+# exposes the application externally via ingress controller
+# -----------------------------------------------------------------------------
+ingress:
+  # enable or disable ingress resource creation
+  enabled: true
+
+  # ingress class name - use your cluster's ingress controller
+  className: nginx
+
+  # annotations for ingress configuration
+  annotations:
+    # enable ssl redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    # request body size limit
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # connection timeout
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    # read timeout
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+
+  # host configuration
+  hosts:
+    # primary hostname for the application
+    - host: test-workflow.local
+      paths:
+        # frontend path - serves the react spa
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+        # api path - routes to api gateway
+        - path: /api
+          pathType: Prefix
+          service: api-gateway
+          port: 8080
+
+  # tls configuration for https
+  tls: []
+  # - secretName: test-workflow-tls
+  #   hosts:
+  #     - test-workflow.local
+
+# -----------------------------------------------------------------------------
+# network policies configuration
+# implements zero trust security by restricting pod-to-pod communication
+# -----------------------------------------------------------------------------
+networkPolicies:
+  # enable or disable network policy creation
+  enabled: true
+
+  # default deny all ingress traffic
+  defaultDeny: true
+
+  # allow dns egress for service discovery
+  allowDnsEgress: true
+
+# -----------------------------------------------------------------------------
+# postgresql configuration
+# using bitnami postgresql chart as dependency
+# set enabled: false if using external database
+# -----------------------------------------------------------------------------
+postgresql:
+  # enable or disable postgresql deployment
+  enabled: true
+
+  # authentication settings
+  auth:
+    # database name
+    database: testworkflow
+    # username
+    username: postgres
+    # password - override in production with secrets
+    password: postgres
+    # postgres admin password
+    postgresPassword: postgres
+
+  # primary instance configuration
+  primary:
+    # persistence settings
+    persistence:
+      # enable persistent storage
+      enabled: true
+      # storage size
+      size: 1Gi
+      # storage class - leave empty for default
+      storageClass: ""
+
+    # resource limits
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+    # initialization scripts
+    initdb:
+      # sql scripts to run on first start
+      scripts:
+        init.sql: |
+          -- create schemas for each service
+          CREATE SCHEMA IF NOT EXISTS orders;
+          CREATE SCHEMA IF NOT EXISTS inventory;
+          CREATE SCHEMA IF NOT EXISTS notifications;
+
+          -- grant permissions
+          GRANT ALL ON SCHEMA orders TO postgres;
+          GRANT ALL ON SCHEMA inventory TO postgres;
+          GRANT ALL ON SCHEMA notifications TO postgres;
+
+# external database settings - use when postgresql.enabled is false
+externalDatabase:
+  # database host
+  host: ""
+  # database port
+  port: 5432
+  # database name
+  database: testworkflow
+  # database user
+  user: postgres
+  # existing secret containing password
+  existingSecret: ""
+  # key in secret containing password
+  existingSecretPasswordKey: "password"
+
+# -----------------------------------------------------------------------------
+# kafka configuration
+# using bitnami kafka chart as dependency
+# set enabled: false if using external kafka
+# -----------------------------------------------------------------------------
+kafka:
+  # enable or disable kafka deployment
+  enabled: true
+
+  # listeners configuration
+  listeners:
+    # client listener settings
+    client:
+      protocol: PLAINTEXT
+    # inter-broker listener settings
+    interbroker:
+      protocol: PLAINTEXT
+
+  # controller settings
+  controller:
+    # number of controller replicas
+    replicaCount: 1
+
+  # resource limits
+  resources:
+    requests:
+      cpu: 200m
+      memory: 512Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+
+  # persistence settings
+  persistence:
+    enabled: true
+    size: 1Gi
+    storageClass: ""
+
+  # auto create topics
+  autoCreateTopicsEnable: true
+
+  # default replication factor
+  defaultReplicationFactor: 1
+
+  # log retention
+  logRetentionHours: 168
+
+# external kafka settings - use when kafka.enabled is false
+externalKafka:
+  # bootstrap servers
+  brokers: ""
+
+# -----------------------------------------------------------------------------
+# service accounts configuration
+# -----------------------------------------------------------------------------
+serviceAccount:
+  # create service accounts for services
+  create: true
+
+  # annotations to add to service accounts
+  annotations: {}
+
+  # name override - leave empty to use release name
+  name: ""
+
+# -----------------------------------------------------------------------------
+# pod security policies
+# note: psp is deprecated in kubernetes 1.25+
+# -----------------------------------------------------------------------------
+podSecurityPolicy:
+  # enable psp creation (deprecated)
+  enabled: false
+
+# -----------------------------------------------------------------------------
+# monitoring configuration
+# prometheus metrics and grafana dashboards
+# -----------------------------------------------------------------------------
+monitoring:
+  # enable prometheus servicemonitor creation
+  serviceMonitor:
+    enabled: false
+    # scrape interval
+    interval: 30s
+    # scrape timeout
+    scrapeTimeout: 10s
+    # additional labels for servicemonitor
+    labels: {}
+
+  # enable grafana dashboard configmap creation
+  grafanaDashboard:
+    enabled: false
+    # dashboard namespace (leave empty for release namespace)
+    namespace: ""
+
+# -----------------------------------------------------------------------------
+# extra objects
+# additional kubernetes resources to create
+# -----------------------------------------------------------------------------
+extraDeploy: []
+# - apiVersion: v1
+#   kind: ConfigMap
+#   metadata:
+#     name: extra-config
+#   data:
+#     key: value

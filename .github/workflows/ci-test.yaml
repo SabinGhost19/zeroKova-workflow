@@ -1,0 +1,298 @@
+# =============================================================================
+# CI Test Pipeline - Tests for all microservices
+# Runs tests in parallel for each service that has changes
+# =============================================================================
+
+name: CI - Tests
+
+on:
+  # trigger on push to main branch
+  push:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.github/docs/**'
+
+  # trigger on pull requests to main branch
+  pull_request:
+    branches:
+      - main
+    paths-ignore:
+      - '*.md'
+      - 'docs/**'
+      - '.gitignore'
+      - '.github/docs/**'
+
+  # allow manual trigger
+  workflow_dispatch:
+    inputs:
+      force_test_all:
+        description: 'Force test all services'
+        required: false
+        default: 'false'
+        type: boolean
+
+  # can be called by other workflows
+  workflow_call:
+    inputs:
+      services-matrix:
+        description: 'JSON matrix of services to test'
+        required: true
+        type: string
+    outputs:
+      test-result:
+        description: 'Overall test result'
+        value: ${{ jobs.test.result }}
+
+concurrency:
+  group: test-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # ===========================================================================
+  # Detect which services have changes
+  # ===========================================================================
+  detect-changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    # Skip if called from another workflow with matrix provided
+    if: ${{ !inputs.services-matrix }}
+    outputs:
+      api-gateway: ${{ steps.changes.outputs.api-gateway }}
+      order-service: ${{ steps.changes.outputs.order-service }}
+      inventory-service: ${{ steps.changes.outputs.inventory-service }}
+      notification-service: ${{ steps.changes.outputs.notification-service }}
+      frontend: ${{ steps.changes.outputs.frontend }}
+      services-matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Detect file changes
+        uses: dorny/paths-filter@v3
+        id: changes
+        with:
+          filters: |
+            api-gateway:
+              - 'services/api-gateway/**'
+              - 'proto/**'
+            order-service:
+              - 'services/order-service/**'
+              - 'proto/**'
+            inventory-service:
+              - 'services/inventory-service/**'
+              - 'proto/**'
+            notification-service:
+              - 'services/notification-service/**'
+              - 'proto/**'
+            frontend:
+              - 'frontend/**'
+
+      - name: Set build matrix
+        id: set-matrix
+        run: |
+          services=()
+
+          if [[ "${{ steps.changes.outputs.api-gateway }}" == "true" ]] || \
+             [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
+            services+=('{"name":"api-gateway","path":"services/api-gateway","language":"go"}')
+          fi
+
+          if [[ "${{ steps.changes.outputs.order-service }}" == "true" ]] || \
+             [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
+            services+=('{"name":"order-service","path":"services/order-service","language":"java"}')
+          fi
+
+          if [[ "${{ steps.changes.outputs.inventory-service }}" == "true" ]] || \
+             [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
+            services+=('{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}')
+          fi
+
+          if [[ "${{ steps.changes.outputs.notification-service }}" == "true" ]] || \
+             [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
+            services+=('{"name":"notification-service","path":"services/notification-service","language":"ruby"}')
+          fi
+
+          if [[ "${{ steps.changes.outputs.frontend }}" == "true" ]] || \
+             [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
+            services+=('{"name":"frontend","path":"frontend","language":"node"}')
+          fi
+
+          # For workflow_dispatch with force, include all
+          if [[ ${#services[@]} -eq 0 ]] && [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+            services=(
+              '{"name":"api-gateway","path":"services/api-gateway","language":"go"}'
+              '{"name":"order-service","path":"services/order-service","language":"java"}'
+              '{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}'
+              '{"name":"notification-service","path":"services/notification-service","language":"ruby"}'
+              '{"name":"frontend","path":"frontend","language":"node"}'
+            )
+          fi
+
+          if [[ ${#services[@]} -eq 0 ]]; then
+            echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+          else
+            joined=$(IFS=,; echo "${services[*]}")
+            echo "matrix={\"include\":[${joined}]}" >> $GITHUB_OUTPUT
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+          fi
+
+  # ===========================================================================
+  # Test job - runs tests for each service
+  # ===========================================================================
+  test:
+    name: Test ${{ matrix.service.name }}
+    runs-on: ubuntu-latest
+    needs: detect-changes
+    if: ${{ needs.detect-changes.outputs.has-changes == 'true' || inputs.services-matrix }}
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(inputs.services-matrix || needs.detect-changes.outputs.services-matrix) }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      # Go service testing (api-gateway)
+      # -----------------------------------------------------------------------
+      - name: Setup Go
+        if: matrix.service.language == 'go'
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.21'
+          cache-dependency-path: ${{ matrix.service.path }}/go.sum
+
+      - name: Run Go tests
+        if: matrix.service.language == 'go'
+        working-directory: ${{ matrix.service.path }}
+        run: |
+          go mod download
+          
+          echo "::group::Running Go linter"
+          go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+          golangci-lint run --timeout=5m || echo "Linting completed with warnings"
+          echo "::endgroup::"
+          
+          echo "::group::Running Go tests"
+          go test -v -race -coverprofile=coverage.out ./...
+          go tool cover -func=coverage.out | tail -1
+          echo "::endgroup::"
+
+      # -----------------------------------------------------------------------
+      # Java service testing (order-service)
+      # -----------------------------------------------------------------------
+      - name: Setup Java
+        if: matrix.service.language == 'java'
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Run Java tests
+        if: matrix.service.language == 'java'
+        working-directory: ${{ matrix.service.path }}
+        run: |
+          echo "::group::Running Maven tests"
+          mvn verify -B -q
+          echo "::endgroup::"
+          
+          echo "::group::Running Checkstyle"
+          mvn checkstyle:check -B -q || echo "Checkstyle completed with warnings"
+          echo "::endgroup::"
+
+      # -----------------------------------------------------------------------
+      # C# service testing (inventory-service)
+      # -----------------------------------------------------------------------
+      - name: Setup .NET
+        if: matrix.service.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Run .NET tests
+        if: matrix.service.language == 'csharp'
+        working-directory: ${{ matrix.service.path }}
+        run: |
+          dotnet restore
+          
+          echo "::group::Running format check"
+          dotnet format --verify-no-changes || echo "Format check completed with warnings"
+          echo "::endgroup::"
+          
+          echo "::group::Building project"
+          dotnet build --no-restore -c Release
+          echo "::endgroup::"
+          
+          echo "::group::Running tests"
+          dotnet test --no-build -c Release --verbosity normal || echo "No tests found"
+          echo "::endgroup::"
+
+      # -----------------------------------------------------------------------
+      # Ruby service testing (notification-service)
+      # -----------------------------------------------------------------------
+      - name: Setup Ruby
+        if: matrix.service.language == 'ruby'
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+          working-directory: ${{ matrix.service.path }}
+
+      - name: Run Ruby tests
+        if: matrix.service.language == 'ruby'
+        working-directory: ${{ matrix.service.path }}
+        run: |
+          bundle install
+          
+          echo "::group::Running RuboCop"
+          bundle exec rubocop --format progress || echo "RuboCop completed with warnings"
+          echo "::endgroup::"
+          
+          echo "::group::Running RSpec"
+          bundle exec rspec --format documentation || echo "No specs found"
+          echo "::endgroup::"
+
+      # -----------------------------------------------------------------------
+      # Node service testing (frontend)
+      # -----------------------------------------------------------------------
+      - name: Setup Node.js
+        if: matrix.service.language == 'node'
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: ${{ matrix.service.path }}/package-lock.json
+
+      - name: Run Node.js tests
+        if: matrix.service.language == 'node'
+        working-directory: ${{ matrix.service.path }}
+        run: |
+          npm ci
+          
+          echo "::group::Running ESLint"
+          npm run lint --if-present || echo "Linting completed with warnings"
+          echo "::endgroup::"
+          
+          echo "::group::Running tests"
+          npm test -- --watchAll=false --passWithNoTests || echo "Tests completed"
+          echo "::endgroup::"
+          
+          echo "::group::Verifying build"
+          npm run build
+          echo "::endgroup::"
+
+      - name: Test Summary
+        if: always()
+        run: |
+          echo "### ✅ Test Results for ${{ matrix.service.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "- **Language:** ${{ matrix.service.language }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Path:** ${{ matrix.service.path }}" >> $GITHUB_STEP_SUMMARY

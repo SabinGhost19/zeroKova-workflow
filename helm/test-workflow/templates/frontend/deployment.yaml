@@ -1,0 +1,100 @@
+{{/*
+=============================================================================
+frontend deployment
+react spa served by nginx with api proxy configuration
+=============================================================================
+*/}}
+{{- if .Values.frontend.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-frontend
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: frontend
+spec:
+  # number of replicas for high availability
+  replicas: {{ .Values.frontend.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        {{- include "test-workflow.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: frontend
+        tier: frontend
+    spec:
+      {{- include "test-workflow.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "test-workflow.serviceAccountName" . }}
+      # pod security context - nginx user
+      {{- with .Values.frontend.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: frontend
+          # container image with tag
+          image: {{ include "test-workflow.image" (dict "global" .Values.global "service" .Values.frontend) }}
+          imagePullPolicy: {{ include "test-workflow.imagePullPolicy" (dict "global" .Values.global "service" .Values.frontend) }}
+          # container security context
+          {{- with .Values.frontend.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # http port for nginx
+            - name: http
+              containerPort: {{ .Values.frontend.service.port }}
+              protocol: TCP
+          # liveness probe - checks nginx health
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.frontend.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.frontend.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.frontend.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.frontend.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.frontend.healthCheck.failureThreshold }}
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.frontend.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.frontend.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.frontend.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.frontend.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.frontend.healthCheck.failureThreshold }}
+          # resource requests and limits - nginx is lightweight
+          resources:
+            {{- toYaml .Values.frontend.resources | nindent 12 }}
+          # volume mounts for nginx cache and tmp directories
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+      # volumes for writable directories when using read-only root filesystem
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+      # node selector for pod scheduling
+      {{- with .Values.frontend.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # affinity rules for pod scheduling
+      {{- with .Values.frontend.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # tolerations for tainted nodes
+      {{- with .Values.frontend.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}

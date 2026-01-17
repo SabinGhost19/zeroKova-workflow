@@ -1,0 +1,18 @@
+{{/*
+=============================================================================
+namespace resource - creates dedicated namespace if global.namespace is set
+only created when a specific namespace is configured
+=============================================================================
+*/}}
+{{- if .Values.global.namespace }}
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {{ .Values.global.namespace }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+  {{- with .Values.global.commonAnnotations }}
+  annotations:
+    {{- toYaml . | nindent 4 }}
+  {{- end }}
+{{- end }}

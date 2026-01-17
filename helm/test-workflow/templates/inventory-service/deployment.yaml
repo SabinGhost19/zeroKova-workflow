@@ -1,0 +1,109 @@
+{{/*
+=============================================================================
+inventory-service deployment
+dotnet core service for inventory management with kafka consumer
+=============================================================================
+*/}}
+{{- if .Values.inventoryService.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "test-workflow.fullname" . }}-inventory-service
+  namespace: {{ include "test-workflow.namespace" . }}
+  labels:
+    {{- include "test-workflow.labels" . | nindent 4 }}
+    app.kubernetes.io/component: inventory-service
+spec:
+  # number of replicas for high availability
+  replicas: {{ .Values.inventoryService.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "test-workflow.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: inventory-service
+  template:
+    metadata:
+      labels:
+        {{- include "test-workflow.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: inventory-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
+    spec:
+      {{- include "test-workflow.imagePullSecrets" . | nindent 6 }}
+      serviceAccountName: {{ include "test-workflow.serviceAccountName" . }}
+      # pod security context
+      {{- with .Values.inventoryService.podSecurityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+        - name: inventory-service
+          # container image with tag
+          image: {{ include "test-workflow.image" (dict "global" .Values.global "service" .Values.inventoryService) }}
+          imagePullPolicy: {{ include "test-workflow.imagePullPolicy" (dict "global" .Values.global "service" .Values.inventoryService) }}
+          # container security context
+          {{- with .Values.inventoryService.securityContext }}
+          securityContext:
+            {{- toYaml . | nindent 12 }}
+          {{- end }}
+          ports:
+            # http port for asp.net core
+            - name: http
+              containerPort: {{ .Values.inventoryService.service.httpPort }}
+              protocol: TCP
+            # grpc port for inter-service communication
+            - name: grpc
+              containerPort: {{ .Values.inventoryService.service.grpcPort }}
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: {{ include "test-workflow.fullname" . }}-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: {{ include "test-workflow.fullname" . }}-db-secret
+                  key: DB_PASSWORD
+            # asp.net core urls configuration
+            - name: ASPNETCORE_URLS
+              value: {{ .Values.inventoryService.aspnetUrls | quote }}
+          # liveness probe - checks service health
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.inventoryService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.inventoryService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.inventoryService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.inventoryService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.inventoryService.healthCheck.failureThreshold }}
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.inventoryService.healthCheck.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.inventoryService.healthCheck.initialDelaySeconds }}
+            periodSeconds: {{ .Values.inventoryService.healthCheck.periodSeconds }}
+            timeoutSeconds: {{ .Values.inventoryService.healthCheck.timeoutSeconds }}
+            failureThreshold: {{ .Values.inventoryService.healthCheck.failureThreshold }}
+          # resource requests and limits
+          resources:
+            {{- toYaml .Values.inventoryService.resources | nindent 12 }}
+      # node selector for pod scheduling
+      {{- with .Values.inventoryService.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # affinity rules for pod scheduling
+      {{- with .Values.inventoryService.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      # tolerations for tainted nodes
+      {{- with .Values.inventoryService.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+{{- end }}
