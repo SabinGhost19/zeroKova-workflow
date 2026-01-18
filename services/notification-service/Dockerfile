@@ -1,22 +1,29 @@
 # Build stage
-FROM ruby:3.2-alpine AS builder
+# Build stage
+FROM ruby:3.2-slim AS builder
 
 WORKDIR /app
 
 # Install build dependencies
-RUN apk add --no-cache build-base postgresql-dev
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy Gemfile
 COPY Gemfile Gemfile.lock* ./
 RUN bundle config set --local without 'development test' && bundle install
 
 # Final stage
-FROM ruby:3.2-alpine
+FROM ruby:3.2-slim
 
 WORKDIR /app
 
 # Install runtime dependencies
-RUN apk add --no-cache libpq
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    wget \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy gems from builder
 COPY --from=builder /usr/local/bundle /usr/local/bundle
