@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.5.0](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.4.0...v1.5.0) (2026-01-18)
+
+### 🚀 Features
+
+* **order-service,frontend:** add actuator health endpoint and fix nginx upstream ([8901ffc](https://github.com/SabinGhost19/zeroKova-workflow/commit/8901ffc1f243438c7829c45c95cfe79f4a654387))
+
 ## [1.4.0](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.20...v1.4.0) (2026-01-18)
 
 ### 🚀 Features
