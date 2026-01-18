@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.12](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.11...v1.3.12) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* **order-service:** add javax.annotation-api back for generated grpc code compatibility ([cca196d](https://github.com/SabinGhost19/zeroKova-workflow/commit/cca196da11cacb544b3431b212b80efd1bf1f902))
+
 ## [1.3.11](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.10...v1.3.11) (2026-01-18)
 
 ### 🐛 Bug Fixes
