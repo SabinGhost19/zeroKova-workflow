@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.5](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.4...v1.3.5) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* fix C# inventory service - correct proto namespace and add xunit ([feedd8a](https://github.com/SabinGhost19/zeroKova-workflow/commit/feedd8a4602435d687a63183017e2df55df3c60f))
+* fix C# inventory service - correct proto namespace and add xunit ([3d4d49c](https://github.com/SabinGhost19/zeroKova-workflow/commit/3d4d49c811a86d1c097288037870ed6c91537b75))
+
 ## [1.3.4](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.3...v1.3.4) (2026-01-18)
 
 ### 🐛 Bug Fixes
