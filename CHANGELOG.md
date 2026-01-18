@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.8](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.7...v1.3.8) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* downgrade typescript to 4.9.5 to match react-scripts requirements ([1be8971](https://github.com/SabinGhost19/zeroKova-workflow/commit/1be8971519d8c3b4d0003d6cfa79ef4c5b863931))
+
 ## [1.3.7](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.6...v1.3.7) (2026-01-18)
 
 ### 🐛 Bug Fixes
