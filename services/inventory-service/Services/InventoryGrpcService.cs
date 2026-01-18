@@ -2,12 +2,11 @@ using Grpc.Core;
 using InventoryService.Data;
 using InventoryService.Models;
 using Microsoft.EntityFrameworkCore;
-using Inventory;
-using Common;
+using TestWorkflow.Proto;
 
 namespace InventoryService.Services;
 
-public class InventoryGrpcService : Inventory.InventoryService.InventoryServiceBase
+public class InventoryGrpcService : TestWorkflow.Proto.InventoryService.InventoryServiceBase
 {
     private readonly InventoryDbContext _dbContext;
     private readonly ILogger<InventoryGrpcService> _logger;
@@ -213,9 +212,9 @@ public class InventoryGrpcService : Inventory.InventoryService.InventoryServiceB
         }
     }
 
-    private static Inventory.Product ToProtoProduct(Models.Product product)
+    private static TestWorkflow.Proto.Product ToProtoProduct(Models.Product product)
     {
-        return new Inventory.Product
+        return new TestWorkflow.Proto.Product
         {
             Id = product.Id.ToString(),
             Name = product.Name,
