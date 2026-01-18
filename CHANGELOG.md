@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.4](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.3...v1.3.4) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* generate all lock files in CI, remove local dependencies ([7b41f65](https://github.com/SabinGhost19/zeroKova-workflow/commit/7b41f65c08152c3403fd396da545a1d95d572a24))
+* generate lock files in CI instead of committing them locally ([7061f2f](https://github.com/SabinGhost19/zeroKova-workflow/commit/7061f2fa7476734b9f20a55f8d88d576f341ac49))
+
 ## [1.3.3](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.2...v1.3.3) (2026-01-18)
 
 ### 🐛 Bug Fixes
