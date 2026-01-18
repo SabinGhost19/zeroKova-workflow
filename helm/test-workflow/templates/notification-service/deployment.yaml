@@ -1,7 +1,7 @@
 {{/*
 =============================================================================
 notification-service deployment
-ruby service for sending notifications via grpc
+go service for sending notifications via grpc
 =============================================================================
 */}}
 {{- if .Values.notificationService.enabled }}

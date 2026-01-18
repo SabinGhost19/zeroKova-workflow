@@ -93,7 +93,7 @@ jobs:
 
           if [[ "${{ steps.changes.outputs.notification-service }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_test_all }}" == "true" ]]; then
-            services+=('{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}')
+            services+=('{"service":{"name":"notification-service","path":"services/notification-service","language":"go"}}')
           fi
 
           if [[ "${{ steps.changes.outputs.frontend }}" == "true" ]] || \
@@ -107,7 +107,7 @@ jobs:
               '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
               '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
               '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
-              '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
+              '{"service":{"name":"notification-service","path":"services/notification-service","language":"go"}}'
               '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
             )
           fi
@@ -146,7 +146,7 @@ jobs:
         if: matrix.service.language == 'go'
         uses: actions/setup-go@v5
         with:
-          go-version: "1.21"
+          go-version: "1.24"
 
       - name: Run Go tests
         if: matrix.service.language == 'go'

@@ -302,7 +302,7 @@ inventoryService:
 
 # -----------------------------------------------------------------------------
 # notification service configuration
-# ruby service for sending notifications
+# go service for sending notifications via grpc
 # -----------------------------------------------------------------------------
 notificationService:
   # enable or disable the notification service deployment
