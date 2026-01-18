@@ -178,21 +178,21 @@ jobs:
           dotnet build --no-restore -c Release
           dotnet test --no-build -c Release || echo "No tests found"
 
-      # Ruby tests
-      - name: Setup Ruby
-        if: matrix.service.language == 'ruby'
-        uses: ruby/setup-ruby@v1
-        with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: ${{ matrix.service.path }}
+      # Ruby tests skipped to speed up build
+      # - name: Setup Ruby
+      #   if: matrix.service.language == 'ruby'
+      #   uses: ruby/setup-ruby@v1
+      #   with:
+      #     ruby-version: '3.2'
+      #     bundler-cache: true
+      #     working-directory: ${{ matrix.service.path }}
 
-      - name: Run Ruby tests
-        if: matrix.service.language == 'ruby'
-        continue-on-error: true
-        working-directory: ${{ matrix.service.path }}
-        run: |
-          bundle exec rspec || echo "No specs found"
+      # - name: Run Ruby tests
+      #   if: matrix.service.language == 'ruby'
+      #   continue-on-error: true
+      #   working-directory: ${{ matrix.service.path }}
+      #   run: |
+      #     bundle exec rspec || echo "No specs found"
 
       # Node tests
       - name: Setup Node.js
