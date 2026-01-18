@@ -1,8 +1,8 @@
 {
   "version": 2,
-  "dgSpecHash": "KqbxaMwFroM=",
+  "dgSpecHash": "HDk6vubCTjA=",
   "success": true,
-  "projectFilePath": "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/InventoryService.csproj",
+  "projectFilePath": "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/InventoryService.csproj",
   "expectedPackageFiles": [
     "/home/sabinghosty19/.nuget/packages/confluent.kafka/2.3.0/confluent.kafka.2.3.0.nupkg.sha512",
     "/home/sabinghosty19/.nuget/packages/google.protobuf/3.25.1/google.protobuf.3.25.1.nupkg.sha512",

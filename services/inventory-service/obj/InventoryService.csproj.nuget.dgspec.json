@@ -1,17 +1,17 @@
 {
   "format": 1,
   "restore": {
-    "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/InventoryService.csproj": {}
+    "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/InventoryService.csproj": {}
   },
   "projects": {
-    "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/InventoryService.csproj": {
+    "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/InventoryService.csproj": {
       "version": "1.0.0",
       "restore": {
-        "projectUniqueName": "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/InventoryService.csproj",
+        "projectUniqueName": "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/InventoryService.csproj",
         "projectName": "InventoryService",
-        "projectPath": "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/InventoryService.csproj",
+        "projectPath": "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/InventoryService.csproj",
         "packagesPath": "/home/sabinghosty19/.nuget/packages/",
-        "outputPath": "/home/sabinghosty19/Desktop/workflowAndScenarios/test-workflow/services/inventory-service/obj/",
+        "outputPath": "/home/sabinghosty19/Desktop/test-workflow/services/inventory-service/obj/",
         "projectStyle": "PackageReference",
         "configFilePaths": [
           "/home/sabinghosty19/.nuget/NuGet/NuGet.Config"
