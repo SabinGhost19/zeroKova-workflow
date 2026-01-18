@@ -2,7 +2,7 @@
     "branches": [
         "main"
     ],
-    "repositoryUrl": "https://github.com/sabinghosty19/test-workflow",
+    "repositoryUrl": "https://github.com/SabinGhost19/zeroKova-workflow",
     "tagFormat": "v${version}",
     "plugins": [
         [

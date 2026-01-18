@@ -28,17 +28,17 @@ on:
       scan_all_images:
         description: 'Scan all images'
         required: false
-        default: 'true'
+        default: true
         type: boolean
       scan_iac:
         description: 'Scan Infrastructure as Code'
         required: false
-        default: 'true'
+        default: true
         type: boolean
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/test-workflow
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/zeroKova-workflow
 
 concurrency:
   group: security-${{ github.workflow }}-${{ github.ref }}

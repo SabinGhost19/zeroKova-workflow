@@ -21,7 +21,7 @@ on:
       force_build_all:
         description: 'Force build all images'
         required: false
-        default: 'false'
+        default: false
         type: boolean
 
   # can be called by other workflows
@@ -38,7 +38,7 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/test-workflow
+  IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/zeroKova-workflow
 
 concurrency:
   group: build-${{ github.workflow }}-${{ github.ref }}
@@ -87,37 +87,37 @@ jobs:
 
           if [[ "${{ steps.changes.outputs.api-gateway }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_build_all }}" == "true" ]]; then
-            services+=('{"name":"api-gateway","path":"services/api-gateway","language":"go"}')
+            services+=('{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}')
           fi
 
           if [[ "${{ steps.changes.outputs.order-service }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_build_all }}" == "true" ]]; then
-            services+=('{"name":"order-service","path":"services/order-service","language":"java"}')
+            services+=('{"service":{"name":"order-service","path":"services/order-service","language":"java"}}')
           fi
 
           if [[ "${{ steps.changes.outputs.inventory-service }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_build_all }}" == "true" ]]; then
-            services+=('{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}')
+            services+=('{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}')
           fi
 
           if [[ "${{ steps.changes.outputs.notification-service }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_build_all }}" == "true" ]]; then
-            services+=('{"name":"notification-service","path":"services/notification-service","language":"ruby"}')
+            services+=('{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}')
           fi
 
           if [[ "${{ steps.changes.outputs.frontend }}" == "true" ]] || \
              [[ "${{ github.event.inputs.force_build_all }}" == "true" ]]; then
-            services+=('{"name":"frontend","path":"frontend","language":"node"}')
+            services+=('{"service":{"name":"frontend","path":"frontend","language":"node"}}')
           fi
 
           # For workflow_dispatch, include all if no specific changes
           if [[ ${#services[@]} -eq 0 ]] && [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
             services=(
-              '{"name":"api-gateway","path":"services/api-gateway","language":"go"}'
-              '{"name":"order-service","path":"services/order-service","language":"java"}'
-              '{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}'
-              '{"name":"notification-service","path":"services/notification-service","language":"ruby"}'
-              '{"name":"frontend","path":"frontend","language":"node"}'
+              '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
+              '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
+              '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
+              '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
+              '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
             )
           fi
 
