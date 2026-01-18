@@ -184,7 +184,7 @@ public class InventoryGrpcService : TestWorkflow.Proto.InventoryService.Inventor
     {
         try
         {
-            var product = new Product
+            var product = new Models.Product
             {
                 Name = request.Name,
                 Description = request.Description,
