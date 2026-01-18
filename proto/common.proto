@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package common;
 
-option go_package = "github.com/test-workflow/proto/common";
+option go_package = "github.com/test-workflow/api-gateway/internal/grpc/proto/common";
 option java_package = "com.testworkflow.proto";
 option csharp_namespace = "TestWorkflow.Proto";
 

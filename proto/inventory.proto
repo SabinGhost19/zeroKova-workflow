@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package inventory;
 
-option go_package = "github.com/test-workflow/proto/inventory";
+option go_package = "github.com/test-workflow/api-gateway/internal/grpc/proto/inventory";
 option java_package = "com.testworkflow.proto";
 option csharp_namespace = "TestWorkflow.Proto";
 

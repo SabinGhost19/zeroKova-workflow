@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package order;
 
-option go_package = "github.com/test-workflow/proto/order";
+option go_package = "github.com/test-workflow/api-gateway/internal/grpc/proto/order";
 option java_package = "com.testworkflow.proto";
 option csharp_namespace = "TestWorkflow.Proto";
 

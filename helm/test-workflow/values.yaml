@@ -193,10 +193,10 @@ orderService:
   healthCheck:
     # spring boot actuator health endpoint
     path: /actuator/health
-    initialDelaySeconds: 30
+    initialDelaySeconds: 90
     periodSeconds: 10
     timeoutSeconds: 5
-    failureThreshold: 3
+    failureThreshold: 6
 
   # pod disruption budget
   podDisruptionBudget:
