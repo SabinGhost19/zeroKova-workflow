@@ -1,3 +1,4 @@
+// API Gateway - Entry point for all client requests
 package main
 
 import (
