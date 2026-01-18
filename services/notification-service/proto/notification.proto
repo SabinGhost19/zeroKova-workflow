@@ -2,22 +2,13 @@ syntax = "proto3";
 
 package notification;
 
-option go_package = "github.com/test-workflow/proto/notification";
-option java_package = "com.testworkflow.proto";
-option csharp_namespace = "TestWorkflow.Proto";
+option go_package = "notification-service/proto";
 
-import "common.proto";
-
-// Notification Service - handles sending notifications
+import "proto/common.proto";
 
 service NotificationService {
-  // Send order confirmation notification
   rpc SendOrderNotification(OrderNotificationRequest) returns (common.StatusResponse);
-
-  // Send stock alert notification
   rpc SendStockAlert(StockAlertRequest) returns (common.StatusResponse);
-
-  // Get notification history
   rpc GetNotifications(GetNotificationsRequest) returns (NotificationsResponse);
 }
 
@@ -32,7 +23,7 @@ message StockAlertRequest {
   string product_id = 1;
   string product_name = 2;
   int32 current_quantity = 3;
-  string alert_type = 4; // LOW_STOCK, OUT_OF_STOCK, RESTOCKED
+  string alert_type = 4;
 }
 
 message Notification {

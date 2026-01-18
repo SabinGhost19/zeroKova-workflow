@@ -1,37 +1,43 @@
 # Build stage
-FROM ruby:3.2-slim AS builder
+FROM golang:1.21-alpine AS builder
 
 WORKDIR /app
 
-# Reintroducem build-essential pentru gem-urile mici (bigdecimal, pg, json)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
+# Install protoc and plugins for gRPC code generation
+RUN apk add --no-cache protobuf protobuf-dev git make
 
-COPY Gemfile Gemfile.lock ./
+# Install Go protoc plugins
+RUN go install google.golang.org/protobuf/cmd/protoc-gen-go@latest && \
+    go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@latest
 
-# IMPORTANT: force_ruby_platform trebuie să fie false (sau șters, căci e default false)
-RUN bundle config set --local force_ruby_platform false && \
-    bundle config set --local without 'development test' && \
-    bundle install
+# Copy go.mod and go.sum first for better caching
+COPY go.mod ./
+RUN go mod download
+
+# Copy proto files and generate Go code
+COPY proto/ ./proto/
+RUN protoc --go_out=. --go_opt=paths=source_relative \
+    --go-grpc_out=. --go-grpc_opt=paths=source_relative \
+    proto/common.proto proto/notification.proto
+
+# Copy the rest of the source code
+COPY . .
+
+# Build the binary
+RUN CGO_ENABLED=0 GOOS=linux go build -a -installsuffix cgo -o notification-service ./cmd/main.go
 
 # Final stage
-FROM ruby:3.2-slim
+FROM alpine:3.19
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libpq-dev \
-    wget \
-    && rm -rf /var/lib/apt/lists/*
+RUN apk add --no-cache ca-certificates wget
 
-COPY --from=builder /usr/local/bundle /usr/local/bundle
-COPY . .
+COPY --from=builder /app/notification-service .
 
 EXPOSE 8083 50053
 
 HEALTHCHECK --interval=30s --timeout=3s --start-period=30s --retries=3 \
     CMD wget --no-verbose --tries=1 --spider http://localhost:8083/health || exit 1
 
-CMD ["ruby", "server.rb"]
+CMD ["./notification-service"]

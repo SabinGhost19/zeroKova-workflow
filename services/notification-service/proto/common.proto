@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package common;
+
+option go_package = "notification-service/proto";
+
+message Empty {}
+
+message StatusResponse {
+  bool success = 1;
+  string message = 2;
+}
+
+message Timestamp {
+  int64 seconds = 1;
+  int32 nanos = 2;
+}

@@ -1,235 +1,695 @@
-# 🔧 GitHub Actions CI/CD Pipeline Guide
+# GitHub Actions CI/CD Pipeline Guide
 
-This document explains how to configure and use the CI/CD pipeline for the test-workflow project.
+This document provides comprehensive documentation for the CI/CD pipeline configuration used in the test-workflow project. The pipeline automates testing, building, security scanning, and releasing of all microservices.
 
-## 📁 Pipeline Structure
+---
 
-The pipeline is split into separate workflow files for better maintainability:
+## Table of Contents
+
+1. [Pipeline Architecture](#pipeline-architecture)
+2. [Workflow Descriptions](#workflow-descriptions)
+3. [Repository Configuration](#repository-configuration)
+4. [Docker Image Management](#docker-image-management)
+5. [Security Scanning](#security-scanning)
+6. [Release Automation](#release-automation)
+7. [Dependency Management](#dependency-management)
+8. [Troubleshooting](#troubleshooting)
+9. [Command Reference](#command-reference)
+10. [References](#references)
+
+---
+
+## Pipeline Architecture
+
+### Workflow Structure
 
 ```
-.github/workflows/
-├── ci-test.yaml         # Testing for all microservices
-├── ci-build.yaml        # Build and push Docker images
-├── ci-security.yaml     # Trivy security scanning
-├── ci-helm.yaml         # Helm chart validation
-├── release.yaml         # Semantic release automation
-├── renovate.yaml        # Dependency updates
-└── pipeline-summary.yaml # Aggregated status
+.github/
+├── README.md                    # This document
+├── docs/
+│   ├── RENOVATE.md              # Renovate bot configuration guide
+│   ├── SEMANTIC_RELEASE.md      # Semantic versioning documentation
+│   └── TRIVY.md                 # Security scanning guide
+└── workflows/
+    ├── ci-test.yaml             # Multi-language test runner
+    ├── ci-build.yaml            # Docker image builder
+    ├── ci-security.yaml         # Trivy vulnerability scanner
+    ├── ci-helm.yaml             # Helm chart validator
+    ├── release.yaml             # Semantic release automation
+    ├── renovate.yaml            # Dependency update bot
+    └── pipeline-summary.yaml    # Status aggregation
 ```
 
-## ⚙️ Required Configuration
+### Pipeline Flow Diagram
 
-### 1. Repository Settings
+```
+                            CI/CD Pipeline Architecture
+                            ===========================
 
-Navigate to **Settings → Actions → General**:
+    +-------------------+
+    |   Developer       |
+    |   Push/PR         |
+    +--------+----------+
+             |
+             v
+    +--------+----------+     +-------------------+
+    |                   |     |                   |
+    |   ci-test.yaml    +---->+   Test Results    |
+    |   (all services)  |     |   (per language)  |
+    |                   |     |                   |
+    +--------+----------+     +-------------------+
+             |
+             | on: push to main
+             v
+    +--------+----------+     +-------------------+
+    |                   |     |                   |
+    |   ci-build.yaml   +---->+   GHCR Images     |
+    |   (Docker build)  |     |   (tagged)        |
+    |                   |     |                   |
+    +--------+----------+     +-------------------+
+             |
+             | workflow_run: completed
+             v
+    +--------+----------+     +-------------------+
+    |                   |     |                   |
+    |  ci-security.yaml +---->+   Trivy Reports   |
+    |  (vulnerability)  |     |   (SARIF/HTML)    |
+    |                   |     |                   |
+    +--------+----------+     +-------------------+
+             |
+             v
+    +--------+----------+     +-------------------+
+    |                   |     |                   |
+    |   release.yaml    +---->+   GitHub Release  |
+    |   (semantic-rel)  |     |   + CHANGELOG     |
+    |                   |     |                   |
+    +-------------------+     +-------------------+
+```
 
-- [x] Allow all actions and reusable workflows
-- [x] Read and write permissions (under "Workflow permissions")
-- [x] Allow GitHub Actions to create and approve pull requests
+### Test Matrix Structure
 
-### 2. Required Secrets
+```
+                        Test Workflow Matrix
+                        ====================
 
-No additional secrets are required! The pipeline uses `GITHUB_TOKEN` which is automatically provided.
+    +------------------------------------------------------------------+
+    |                        ci-test.yaml                              |
+    |                                                                  |
+    |   +------------------+  +------------------+  +----------------+ |
+    |   |                  |  |                  |  |                | |
+    |   |  API Gateway     |  |  Order Service   |  |  Inventory     | |
+    |   |  (Go 1.21)       |  |  (Java 21)       |  |  Service       | |
+    |   |                  |  |                  |  |  (C# .NET 8)   | |
+    |   |  go test ./...   |  |  mvn test        |  |  dotnet test   | |
+    |   |                  |  |                  |  |                | |
+    |   +------------------+  +------------------+  +----------------+ |
+    |                                                                  |
+    |   +------------------+  +------------------+                     |
+    |   |                  |  |                  |                     |
+    |   |  Notification    |  |  Frontend        |                     |
+    |   |  Service         |  |  (Node 20)       |                     |
+    |   |  (Go 1.21)       |  |                  |                     |
+    |   |  go test ./...   |  |  npm test        |                     |
+    |   |                  |  |                  |                     |
+    |   +------------------+  +------------------+                     |
+    |                                                                  |
+    +------------------------------------------------------------------+
+```
 
-| Secret | Source | Description |
-|--------|--------|-------------|
-| `GITHUB_TOKEN` | Automatic | Used for GHCR push, releases, and API calls |
+### Build and Push Flow
 
-### 3. Package Registry (GHCR)
+```
+                        Build Workflow Detail
+                        =====================
 
-Images are pushed to GitHub Container Registry (GHCR). Ensure:
+    +-------------+     +------------------+     +------------------+
+    |             |     |                  |     |                  |
+    |  Checkout   +---->+  Detect Changes  +---->+  Matrix Build    |
+    |  Code       |     |  (paths filter)  |     |  (parallel)      |
+    |             |     |                  |     |                  |
+    +-------------+     +------------------+     +--------+---------+
+                                                          |
+                                                          v
+    +------------------+     +------------------+     +---+------------+
+    |                  |     |                  |     |                |
+    |  Push to GHCR    +<----+  Tag Images      +<----+  Docker Build  |
+    |                  |     |  (sha, latest)   |     |  (multi-stage) |
+    |                  |     |                  |     |                |
+    +------------------+     +------------------+     +----------------+
+```
 
-1. Go to **Settings → Packages**
-2. Verify "Inherit access from source repository" is enabled
+---
 
-### 4. Branch Protection (Recommended)
+## Workflow Descriptions
 
-For the `main` branch:
+### CI - Tests (ci-test.yaml)
 
-1. Go to **Settings → Branches → Add rule**
-2. Configure:
-   - [x] Require a pull request before merging
-   - [x] Require status checks to pass
-   - [x] Select: `Test api-gateway`, `Test order-service`, etc.
-   - [x] Require branches to be up to date
-   - [x] Include administrators
+Runs automated tests for all microservices using language-specific test frameworks.
 
-## 🔄 Workflow Triggers
+| Trigger | Condition |
+|---------|-----------|
+| push | main branch, service paths |
+| pull_request | main branch, service paths |
+| workflow_dispatch | Manual trigger |
 
-| Workflow | Push to main | Pull Request | Manual | Schedule | Workflow Run |
-|----------|:------------:|:------------:|:------:|:--------:|:------------:|
-| CI - Tests | ✅ | ✅ | ✅ | - | - |
-| CI - Build & Push | ✅ | - | ✅ | - | - |
-| CI - Security Scan | - | - | ✅ | - | ✅ (after build) |
-| CI - Helm Validation | ✅ | ✅ | ✅ | - | - |
-| Release | ✅ | - | ✅ | - | - |
-| Renovate | - | - | ✅ | Daily 6AM UTC | - |
-| Pipeline Summary | - | - | ✅ | - | ✅ |
+**Test Commands by Service:**
 
-## 📦 Docker Images
+| Service | Language | Test Command |
+|---------|----------|--------------|
+| api-gateway | Go | `go test -v -race ./...` |
+| order-service | Java | `mvn test -B` |
+| inventory-service | C# | `dotnet test --verbosity normal` |
+| notification-service | Go | `go test -v ./...` |
+| frontend | Node.js | `npm test -- --coverage` |
 
-### Image Naming
+### CI - Build and Push (ci-build.yaml)
 
-All images are published to:
+Builds Docker images and pushes them to GitHub Container Registry.
+
+| Trigger | Condition |
+|---------|-----------|
+| push | main branch only |
+| workflow_dispatch | Manual with force_build_all option |
+
+**Build Matrix:**
+
+```yaml
+strategy:
+  matrix:
+    service:
+      - api-gateway
+      - order-service
+      - inventory-service
+      - notification-service
+      - frontend
+```
+
+### CI - Security Scan (ci-security.yaml)
+
+Runs Trivy vulnerability scanner against all container images and infrastructure code.
+
+| Trigger | Condition |
+|---------|-----------|
+| workflow_run | After ci-build.yaml completes |
+| workflow_dispatch | Manual trigger |
+
+**Scan Targets:**
+
+| Target | Type | Output |
+|--------|------|--------|
+| Docker images | Container | SARIF, HTML, JSON |
+| Helm charts | IaC | SARIF |
+| Dockerfiles | Config | SARIF |
+
+### CI - Helm Validation (ci-helm.yaml)
+
+Validates Helm chart syntax and templates.
+
+| Trigger | Condition |
+|---------|-----------|
+| push | main branch, helm/ path |
+| pull_request | main branch, helm/ path |
+| workflow_dispatch | Manual trigger |
+
+**Validation Steps:**
+
+1. Lint chart with `helm lint`
+2. Template rendering with `helm template`
+3. Kubernetes manifest validation with `kubeval`
+
+### Release (release.yaml)
+
+Automates semantic versioning and release creation based on conventional commits.
+
+| Trigger | Condition |
+|---------|-----------|
+| push | main branch |
+| workflow_dispatch | Manual with dry_run option |
+
+### Renovate (renovate.yaml)
+
+Manages automated dependency updates across all services.
+
+| Trigger | Condition |
+|---------|-----------|
+| schedule | Daily at 06:00 UTC |
+| workflow_dispatch | Manual trigger |
+
+---
+
+## Repository Configuration
+
+### Required Settings
+
+Navigate to **Settings** in your GitHub repository and configure the following:
+
+#### Actions Permissions
+
+Path: Settings > Actions > General
+
+| Setting | Value |
+|---------|-------|
+| Actions permissions | Allow all actions and reusable workflows |
+| Workflow permissions | Read and write permissions |
+| Allow GitHub Actions to create and approve pull requests | Enabled |
+
+#### Secrets Configuration
+
+The pipeline uses automatically provided secrets:
+
+| Secret | Source | Usage |
+|--------|--------|-------|
+| GITHUB_TOKEN | Automatic | GHCR authentication, API calls, releases |
+
+No additional secrets are required for basic operation.
+
+#### Package Registry
+
+Path: Settings > Packages
+
+| Setting | Value |
+|---------|-------|
+| Package visibility | Inherit access from source repository |
+
+### Branch Protection Rules
+
+Recommended configuration for the main branch:
+
+Path: Settings > Branches > Add rule
+
+| Rule | Recommended Value |
+|------|-------------------|
+| Branch name pattern | main |
+| Require pull request before merging | Enabled |
+| Require status checks to pass | Enabled |
+| Required checks | Test api-gateway, Test order-service, Test inventory-service, Test notification-service, Test frontend |
+| Require branches to be up to date | Enabled |
+| Include administrators | Enabled |
+
+---
+
+## Docker Image Management
+
+### Registry Location
+
+All images are published to GitHub Container Registry (GHCR):
+
 ```
 ghcr.io/{owner}/test-workflow/{service}:{tag}
 ```
 
-### Available Tags
+### Tag Naming Convention
 
-| Tag Pattern | Description |
-|-------------|-------------|
-| `latest` | Latest build from main branch |
-| `sha-{commit}` | Specific commit build |
-| `v{x.y.z}` | Semantic version (created by release) |
-| `{branch}` | Branch name (for non-main branches) |
+| Tag Pattern | Description | Example |
+|-------------|-------------|---------|
+| latest | Most recent main branch build | ghcr.io/.../api-gateway:latest |
+| sha-{hash} | Specific commit SHA (first 7 chars) | ghcr.io/.../api-gateway:sha-abc1234 |
+| v{x.y.z} | Semantic version from release | ghcr.io/.../api-gateway:v1.2.3 |
+| {branch} | Branch name (non-main) | ghcr.io/.../api-gateway:feature-auth |
 
 ### Pulling Images
 
 ```bash
-# Pull latest
+# Latest version
 docker pull ghcr.io/sabinghosty19/test-workflow/api-gateway:latest
 
-# Pull specific version
-docker pull ghcr.io/sabinghosty19/test-workflow/api-gateway:v1.0.0
+# Specific version
+docker pull ghcr.io/sabinghosty19/test-workflow/api-gateway:v1.2.3
+
+# Specific commit
+docker pull ghcr.io/sabinghosty19/test-workflow/api-gateway:sha-abc1234
+
+# All services (latest)
+for svc in api-gateway order-service inventory-service notification-service frontend; do
+  docker pull ghcr.io/sabinghosty19/test-workflow/$svc:latest
+done
 ```
 
-## 🔒 Security Scanning
+### Image Size Optimization
 
-### Trivy Reports Location
+Each service uses multi-stage Docker builds to minimize image size:
+
+| Service | Base Image | Final Size (approx) |
+|---------|------------|---------------------|
+| api-gateway | golang:alpine / scratch | 15 MB |
+| order-service | eclipse-temurin:21-jre | 250 MB |
+| inventory-service | mcr.microsoft.com/dotnet/aspnet:8.0 | 200 MB |
+| notification-service | golang:alpine / alpine | 20 MB |
+| frontend | nginx:alpine | 25 MB |
+
+---
+
+## Security Scanning
+
+### Trivy Scanner Configuration
+
+The security workflow runs Trivy against multiple targets:
+
+```
+                    Security Scan Flow
+                    ==================
+
+    +------------------+
+    |                  |
+    |  Docker Images   +------+
+    |  (5 services)    |      |
+    |                  |      |
+    +------------------+      |      +------------------+
+                              +----->+                  |
+    +------------------+      |      |  Trivy Scanner   |
+    |                  |      |      |                  |
+    |  Helm Charts     +------+      +--------+---------+
+    |  (IaC scan)      |      |               |
+    |                  |      |               v
+    +------------------+      |      +--------+---------+
+                              |      |                  |
+    +------------------+      |      |  Report Output   |
+    |                  |      |      |  - SARIF         |
+    |  Dockerfiles     +------+      |  - HTML          |
+    |  (config scan)   |             |  - JSON          |
+    |                  |             |                  |
+    +------------------+             +------------------+
+```
+
+### Report Access
+
+#### GitHub Actions Artifacts
 
 After each scan, reports are available in:
 
-1. **GitHub Actions → Artifacts**
-   - `trivy-security-reports-all` - Combined report with index.html
-   - Individual reports per service
+1. Navigate to **Actions** > Select workflow run
+2. Scroll to **Artifacts** section
+3. Download `trivy-security-reports-all` (combined report with index.html)
 
-2. **GitHub Security Tab**
-   - **Security → Code scanning alerts**
-   - View all vulnerabilities in one place
+#### GitHub Security Tab
 
-### Report Types
+SARIF reports are uploaded to GitHub Security:
 
-| Format | Purpose |
-|--------|---------|
-| HTML | Human-readable, downloadable |
-| SARIF | GitHub Security integration |
-| JSON | Machine-readable processing |
+1. Navigate to **Security** > **Code scanning alerts**
+2. View all vulnerabilities across services
+3. Filter by severity, service, or vulnerability type
 
-## 🚀 Releasing
+### Report Formats
 
-### Automatic Releases
+| Format | Purpose | Location |
+|--------|---------|----------|
+| HTML | Human-readable report with styling | Artifacts download |
+| SARIF | GitHub Security integration | Security tab |
+| JSON | Machine processing, CI integration | Artifacts download |
 
-Releases are triggered automatically when:
-1. Push to `main` branch
-2. Commits follow [Conventional Commits](https://www.conventionalcommits.org/)
+### Severity Levels
 
-### Version Bumping
+| Level | Action |
+|-------|--------|
+| CRITICAL | Fails workflow (configurable) |
+| HIGH | Warning, documented in report |
+| MEDIUM | Documented in report |
+| LOW | Documented in report |
 
-| Commit Type | Version Bump | Example |
-|-------------|--------------|---------|
-| `fix:` | Patch (0.0.X) | `fix: resolve null pointer` |
-| `feat:` | Minor (0.X.0) | `feat: add new endpoint` |
-| `feat!:` or `BREAKING CHANGE:` | Major (X.0.0) | `feat!: change API format` |
+---
 
-### What Happens on Release
+## Release Automation
 
-1. Version calculated from commits
-2. `CHANGELOG.md` updated
-3. Git tag created (e.g., `v1.2.3`)
-4. GitHub Release created
-5. Docker images tagged with version
+### Semantic Versioning
 
-## 🔄 Dependency Updates (Renovate)
+The project follows Semantic Versioning (SemVer) with automated releases based on commit messages.
 
-### Automatic Behavior
+### Conventional Commits Format
 
-- Runs daily at 6:00 AM UTC
-- Creates PRs for dependency updates
-- **Automerges** patch and minor updates
-- **Requires review** for major updates
+```
+<type>[optional scope]: <description>
+
+[optional body]
+
+[optional footer(s)]
+```
+
+### Version Bump Rules
+
+| Commit Type | Version Bump | Example Commit |
+|-------------|--------------|----------------|
+| fix: | Patch (0.0.X) | fix: resolve null pointer in order service |
+| feat: | Minor (0.X.0) | feat: add bulk order creation endpoint |
+| feat!: | Major (X.0.0) | feat!: redesign order API response format |
+| BREAKING CHANGE: | Major (X.0.0) | feat: update auth\n\nBREAKING CHANGE: token format changed |
+
+### Release Workflow
+
+```
+                        Release Process
+                        ===============
+
+    +------------------+     +------------------+     +------------------+
+    |                  |     |                  |     |                  |
+    |  Analyze Commits +---->+  Calculate Next  +---->+  Update         |
+    |  (since last tag)|     |  Version         |     |  CHANGELOG.md   |
+    |                  |     |                  |     |                  |
+    +------------------+     +------------------+     +--------+---------+
+                                                               |
+                                                               v
+    +------------------+     +------------------+     +--------+---------+
+    |                  |     |                  |     |                  |
+    |  Re-tag Docker   +<----+  Create GitHub   +<----+  Create Git Tag  |
+    |  Images          |     |  Release         |     |  (v1.2.3)        |
+    |                  |     |                  |     |                  |
+    +------------------+     +------------------+     +------------------+
+```
+
+### Release Outputs
+
+Each release creates:
+
+1. **Git Tag**: Annotated tag (e.g., v1.2.3)
+2. **GitHub Release**: With auto-generated release notes
+3. **CHANGELOG.md**: Updated with new version section
+4. **Docker Image Tags**: Images re-tagged with version
+
+---
+
+## Dependency Management
+
+### Renovate Bot Configuration
+
+Renovate automatically manages dependency updates across all services.
+
+### Schedule
+
+| Parameter | Value |
+|-----------|-------|
+| Schedule | Daily at 06:00 UTC (weekdays) |
+| Timezone | UTC |
+| Automerge | Enabled for patch and minor updates |
+
+### Update Grouping
+
+Updates are grouped to reduce PR noise:
+
+| Group | Includes | Automerge |
+|-------|----------|-----------|
+| Go Dependencies | go.mod updates | Patch/Minor |
+| Java Dependencies | pom.xml updates | Patch/Minor |
+| .NET Dependencies | .csproj updates | Patch/Minor |
+| Node Dependencies | package.json updates | Patch/Minor |
+| Docker Base Images | Dockerfile FROM updates | Patch only |
+| GitHub Actions | workflow action versions | Patch/Minor |
 
 ### PR Labels
 
 | Label | Meaning |
 |-------|---------|
-| `dependencies` | All dependency PRs |
-| `renovate` | Created by Renovate |
-| `major-update` | Major version bump |
-| `security` | Security-related update |
+| dependencies | All dependency update PRs |
+| renovate | Created by Renovate bot |
+| major-update | Major version bump (requires review) |
+| minor-update | Minor version bump |
+| patch-update | Patch version bump |
+| security | Security-related update |
 
-### Skipping Updates
+### Managing Updates
 
-To skip a specific update, add to the PR comment:
+To skip a specific dependency update, comment on the PR:
+
 ```
 @renovate ignore this dependency
 ```
 
-## 🐛 Troubleshooting
+To ignore a major version:
 
-### Tests Failing
+```
+@renovate ignore this major version
+```
 
-1. Check the specific test job in Actions
-2. Look for error messages in logs
-3. Run tests locally:
-   ```bash
-   # Go
-   cd services/api-gateway && go test ./...
-   
-   # Java
-   cd services/order-service && mvn test
-   
-   # C#
-   cd services/inventory-service && dotnet test
-   
-   # Ruby
-   cd services/notification-service && bundle exec rspec
-   
-   # Node
-   cd frontend && npm test
-   ```
+---
 
-### Build Failing
+## Troubleshooting
 
-1. Verify Dockerfile syntax
-2. Check build logs for errors
-3. Test locally:
-   ```bash
-   docker build -t test services/api-gateway
-   ```
+### Test Failures
+
+```
+                    Test Failure Diagnosis
+                    ======================
+
+    +------------------+
+    |                  |
+    |  Check Actions   +---->  View test job logs
+    |  Workflow Run    |
+    |                  |
+    +--------+---------+
+             |
+             v
+    +--------+---------+
+    |                  |
+    |  Identify        +---->  Note failing test name
+    |  Failed Test     |
+    |                  |
+    +--------+---------+
+             |
+             v
+    +--------+---------+
+    |                  |
+    |  Run Locally     +---->  Reproduce and fix
+    |                  |
+    +------------------+
+```
+
+**Local Test Commands:**
+
+```bash
+# Go services
+cd services/api-gateway && go test -v ./...
+cd services/notification-service && go test -v ./...
+
+# Java service
+cd services/order-service && mvn test
+
+# C# service
+cd services/inventory-service && dotnet test
+
+# Frontend
+cd frontend && npm test
+```
+
+### Build Failures
+
+Common causes and solutions:
+
+| Issue | Cause | Solution |
+|-------|-------|----------|
+| Dockerfile syntax error | Invalid instruction | Validate with `docker build --check` |
+| Missing dependencies | Not in go.mod/package.json | Run dependency install |
+| Build timeout | Large image or slow network | Increase timeout or optimize Dockerfile |
+| GHCR push failed | Authentication issue | Check GITHUB_TOKEN permissions |
+
+**Local Build Test:**
+
+```bash
+# Build single service
+docker build -t test-build services/api-gateway
+
+# Build with BuildKit (recommended)
+DOCKER_BUILDKIT=1 docker build -t test-build services/api-gateway
+```
 
 ### Security Scan Issues
 
-1. Scans continue even with vulnerabilities
-2. Check HTML reports in artifacts
-3. Review Security tab for details
+| Issue | Solution |
+|-------|----------|
+| Critical vulnerability found | Update base image or dependency |
+| False positive | Add to .trivyignore file |
+| Scan timeout | Increase workflow timeout |
 
 ### Release Not Triggering
 
-1. Ensure commits follow Conventional Commits format
-2. Check for `[skip ci]` in commit messages
-3. Verify branch is `main`
+Checklist:
 
-## 📋 Quick Commands
+1. Verify commits follow Conventional Commits format
+2. Check commit messages do not contain `[skip ci]`
+3. Confirm push is to main branch
+4. Review release workflow logs for errors
+
+---
+
+## Command Reference
+
+### Manual Workflow Triggers
 
 ```bash
-# Manual trigger - Tests
+# Run tests for all services
 gh workflow run ci-test.yaml
 
-# Manual trigger - Build all
+# Build and push all images (force rebuild)
 gh workflow run ci-build.yaml -f force_build_all=true
 
-# Manual trigger - Security scan
+# Run security scan
 gh workflow run ci-security.yaml
 
-# Manual trigger - Release (dry run)
+# Validate Helm charts
+gh workflow run ci-helm.yaml
+
+# Create release (dry run mode)
 gh workflow run release.yaml -f dry_run=true
 
-# Manual trigger - Renovate
+# Trigger Renovate dependency check
 gh workflow run renovate.yaml
 ```
 
-## 📚 Related Documentation
+### Workflow Status
+
+```bash
+# List recent workflow runs
+gh run list
+
+# View specific run details
+gh run view <run-id>
+
+# Watch running workflow
+gh run watch <run-id>
+
+# Download artifacts
+gh run download <run-id>
+```
+
+### Image Management
+
+```bash
+# List images in GHCR
+gh api user/packages/container/test-workflow%2Fapi-gateway/versions
+
+# Delete old image versions (keep last 10)
+gh api -X DELETE user/packages/container/test-workflow%2Fapi-gateway/versions/<version-id>
+```
+
+---
+
+## References
+
+### GitHub Documentation
+
+- GitHub Actions: https://docs.github.com/en/actions
+- GitHub Container Registry: https://docs.github.com/en/packages/working-with-a-github-packages-registry/working-with-the-container-registry
+- GitHub Security Features: https://docs.github.com/en/code-security
+
+### CI/CD Tools
+
+- Semantic Release: https://semantic-release.gitbook.io/semantic-release/
+- Conventional Commits: https://www.conventionalcommits.org/
+- Renovate: https://docs.renovatebot.com/
+
+### Security
+
+- Trivy Documentation: https://aquasecurity.github.io/trivy/
+- SARIF Format: https://sarifweb.azurewebsites.net/
+
+### Container Tools
+
+- Docker BuildKit: https://docs.docker.com/build/buildkit/
+- Multi-stage Builds: https://docs.docker.com/build/building/multi-stage/
+
+### Helm
+
+- Helm Documentation: https://helm.sh/docs/
+- Chart Best Practices: https://helm.sh/docs/chart_best_practices/
+
+### Related Project Documentation
 
 - [Renovate Configuration](./docs/RENOVATE.md)
 - [Semantic Release Guide](./docs/SEMANTIC_RELEASE.md)
