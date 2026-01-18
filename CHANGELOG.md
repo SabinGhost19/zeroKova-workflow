@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.1...v1.3.2) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* CI pipeline - add Linux platforms to Gemfile.lock, fix ESLint warning, disable cancel-in-progress ([6d010d8](https://github.com/SabinGhost19/zeroKova-workflow/commit/6d010d8f02ab1f65fb7882c8e13ee535cfb51130))
+
 ## [1.3.1](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.0...v1.3.1) (2026-01-18)
 
 ### 🐛 Bug Fixes
