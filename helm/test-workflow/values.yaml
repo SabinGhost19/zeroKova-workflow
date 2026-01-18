@@ -6,16 +6,18 @@
 global:
   # container image registry - where images are pulled from
   # change this to your private registry if not using ghcr
-  imageRegistry: ghcr.io/sabinghosty19/test-workflow
+  # container image registry - where images are pulled from
+  # change this to your private registry if not using ghcr
+  imageRegistry: ghcr.io/sabinghost19/zerokova-workflow
 
   # image pull policy - when to pull images from registry
   # options: Always, IfNotPresent, Never
   # use Always for development, IfNotPresent for production
-  imagePullPolicy: IfNotPresent
+  imagePullPolicy: Always
 
   # image tag - version tag for all service images
   # this should match the ci/cd pipeline output
-  imageTag: "v1.0"
+  imageTag: "latest"
 
   # image pull secrets - credentials for private registries
   # create secret with: kubectl create secret docker-registry ghcr-secret ...

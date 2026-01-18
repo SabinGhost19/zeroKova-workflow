@@ -184,14 +184,15 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
           working-directory: ${{ matrix.service.path }}
 
       - name: Run Ruby tests
         if: matrix.service.language == 'ruby'
         working-directory: ${{ matrix.service.path }}
         run: |
-          bundle install
+          gem install bundler
+          bundle config set --local path 'vendor/bundle'
+          bundle install --jobs 4 --retry 3
           bundle exec rspec || echo "No specs found"
 
       # Node tests
