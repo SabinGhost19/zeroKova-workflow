@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.5.0...v2.0.0) (2026-01-18)
+
+### ⚠ BREAKING CHANGES
+
+* **grpc:** api-gateway requires Go 1.24+
+
+### 🐛 Bug Fixes
+
+* **grpc:** regenerate protobuf files with proper proto.Message implementation ([8b42747](https://github.com/SabinGhost19/zeroKova-workflow/commit/8b42747b626bcce0f851fc856f85b52df1725321))
+
 ## [1.5.0](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.4.0...v1.5.0) (2026-01-18)
 
 ### 🚀 Features
