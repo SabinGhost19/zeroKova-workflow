@@ -8,7 +8,7 @@ RUN apk add --no-cache build-base postgresql-dev
 
 # Copy Gemfile
 COPY Gemfile Gemfile.lock* ./
-RUN bundle install --without development test
+RUN bundle config set --local without 'development test' && bundle install
 
 # Final stage
 FROM ruby:3.2-alpine
