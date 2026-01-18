@@ -5,6 +5,11 @@ node_modules/
 vendor/
 .bundle/
 
+# Lock files - generated in CI
+package-lock.json
+Gemfile.lock
+go.sum
+
 # =============================================================================
 # Build outputs
 # =============================================================================

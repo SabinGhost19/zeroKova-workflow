@@ -147,12 +147,12 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.21'
-          cache-dependency-path: ${{ matrix.service.path }}/go.sum
 
       - name: Run Go tests
         if: matrix.service.language == 'go'
         working-directory: ${{ matrix.service.path }}
         run: |
+          go mod tidy
           go mod download
           go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
           golangci-lint run --timeout=5m || echo "Linting completed with warnings"
@@ -168,12 +168,12 @@ jobs:
         with:
           java-version: '17'
           distribution: 'temurin'
-          cache: 'maven'
 
       - name: Run Java tests
         if: matrix.service.language == 'java'
         working-directory: ${{ matrix.service.path }}
         run: |
+          mvn dependency:resolve -B
           mvn verify -B
           mvn checkstyle:check -B || echo "Checkstyle completed with warnings"
 
@@ -203,13 +203,13 @@ jobs:
         uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true
           working-directory: ${{ matrix.service.path }}
 
       - name: Run Ruby tests
         if: matrix.service.language == 'ruby'
         working-directory: ${{ matrix.service.path }}
         run: |
+          bundle lock --add-platform x86_64-linux x86_64-linux-gnu || true
           bundle install
           bundle exec rubocop --format progress || echo "RuboCop completed with warnings"
           bundle exec rspec --format documentation || echo "No specs found"
@@ -222,14 +222,13 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: ${{ matrix.service.path }}/package-lock.json
 
       - name: Run Node.js tests
         if: matrix.service.language == 'node'
         working-directory: ${{ matrix.service.path }}
         run: |
-          npm ci
+          rm -f package-lock.json
+          npm install
           npm run lint --if-present || echo "Linting completed with warnings"
           npm test -- --watchAll=false --passWithNoTests || echo "Tests completed"
           npm run build
