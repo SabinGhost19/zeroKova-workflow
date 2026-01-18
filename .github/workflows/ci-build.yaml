@@ -19,7 +19,12 @@ on:
   workflow_dispatch:
     inputs:
       force_build_all:
-        description: 'Force build all images'
+        description: 'Force build all images (ignore change detection)'
+        required: false
+        default: true
+        type: boolean
+      skip_tests:
+        description: 'Skip tests before building'
         required: false
         default: false
         type: boolean
@@ -110,24 +115,29 @@ jobs:
             services+=('{"service":{"name":"frontend","path":"frontend","language":"node"}}')
           fi
 
-          # For workflow_dispatch, include all if no specific changes
-          if [[ ${#services[@]} -eq 0 ]] && [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            services=(
-              '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
-              '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
-              '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
-              '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
-              '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
-            )
+          # For workflow_dispatch or if no changes detected, build all services
+          if [[ ${#services[@]} -eq 0 ]]; then
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              # Manual trigger - always build all
+              services=(
+                '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
+                '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
+                '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
+                '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
+                '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
+              )
+            fi
           fi
 
           if [[ ${#services[@]} -eq 0 ]]; then
             echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
             echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes detected in services"
           else
             joined=$(IFS=,; echo "${services[*]}")
             echo "matrix={\"include\":[${joined}]}" >> $GITHUB_OUTPUT
             echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "✅ Will build ${#services[@]} service(s)"
           fi
 
   # ===========================================================================
@@ -136,7 +146,7 @@ jobs:
   run-tests:
     name: Run Tests
     needs: detect-changes
-    if: ${{ needs.detect-changes.outputs.has-changes == 'true' }}
+    if: ${{ needs.detect-changes.outputs.has-changes == 'true' && github.event.inputs.skip_tests != 'true' }}
     uses: ./.github/workflows/ci-test.yaml
     with:
       services-matrix: ${{ needs.detect-changes.outputs.services-matrix }}
@@ -148,7 +158,10 @@ jobs:
     name: Build ${{ matrix.service.name }}
     runs-on: ubuntu-latest
     needs: [detect-changes, run-tests]
-    if: ${{ needs.detect-changes.outputs.has-changes == 'true' }}
+    if: |
+      always() &&
+      needs.detect-changes.outputs.has-changes == 'true' &&
+      (needs.run-tests.result == 'success' || needs.run-tests.result == 'skipped')
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(inputs.services-matrix || needs.detect-changes.outputs.services-matrix) }}

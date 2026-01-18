@@ -30,9 +30,9 @@ on:
   workflow_dispatch:
     inputs:
       force_test_all:
-        description: 'Force test all services'
+        description: 'Force test all services (ignore change detection)'
         required: false
-        default: false
+        default: true
         type: boolean
 
   # can be called by other workflows
@@ -123,24 +123,28 @@ jobs:
             services+=('{"service":{"name":"frontend","path":"frontend","language":"node"}}')
           fi
 
-          # For workflow_dispatch with force, include all
-          if [[ ${#services[@]} -eq 0 ]] && [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
-            services=(
-              '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
-              '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
-              '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
-              '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
-              '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
-            )
+          # For workflow_dispatch, always include all services (manual trigger = intentional test)
+          if [[ ${#services[@]} -eq 0 ]]; then
+            if [[ "${{ github.event_name }}" == "workflow_dispatch" ]]; then
+              services=(
+                '{"service":{"name":"api-gateway","path":"services/api-gateway","language":"go"}}'
+                '{"service":{"name":"order-service","path":"services/order-service","language":"java"}}'
+                '{"service":{"name":"inventory-service","path":"services/inventory-service","language":"csharp"}}'
+                '{"service":{"name":"notification-service","path":"services/notification-service","language":"ruby"}}'
+                '{"service":{"name":"frontend","path":"frontend","language":"node"}}'
+              )
+            fi
           fi
 
           if [[ ${#services[@]} -eq 0 ]]; then
             echo "matrix={\"include\":[]}" >> $GITHUB_OUTPUT
             echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "ℹ️ No changes detected in services"
           else
             joined=$(IFS=,; echo "${services[*]}")
             echo "matrix={\"include\":[${joined}]}" >> $GITHUB_OUTPUT
             echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "✅ Will test ${#services[@]} service(s)"
           fi
 
   # ===========================================================================
