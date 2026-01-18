@@ -3,15 +3,15 @@ FROM ruby:3.2-slim AS builder
 
 WORKDIR /app
 
-# 1. Instalează doar ce este strict necesar pentru alte gems (ex: pg are nevoie de libpq-dev)
-# Am eliminat build-essential pentru a preveni compilarea lentă a gRPC
+# Reintroducem build-essential pentru gem-urile mici (bigdecimal, pg, json)
 RUN apt-get update && apt-get install -y --no-install-recommends \
+    build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 COPY Gemfile Gemfile.lock ./
 
-# 2. Forțăm Bundler să NU compileze, ci să folosească platforma binară
+# IMPORTANT: force_ruby_platform trebuie să fie false (sau șters, căci e default false)
 RUN bundle config set --local force_ruby_platform false && \
     bundle config set --local without 'development test' && \
     bundle install
