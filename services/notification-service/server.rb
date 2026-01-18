@@ -1,4 +1,6 @@
 #!/usr/bin/env ruby
+# Notification Service - Handles notifications
+# Version: 1.0.0
 
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), 'lib'))
 $LOAD_PATH.unshift(File.join(File.dirname(__FILE__), 'protos'))

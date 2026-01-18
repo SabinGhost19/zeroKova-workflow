@@ -1,3 +1,5 @@
+// Order Service - Handles order management
+// Version: 1.0.0
 package com.testworkflow.order;
 
 import org.springframework.boot.SpringApplication;

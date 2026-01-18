@@ -1,4 +1,5 @@
 // API Gateway - Entry point for all client requests
+// Version: 1.0.0
 package main
 
 import (

@@ -1,3 +1,5 @@
+// Inventory Service - Manages product inventory
+// Version: 1.0.0
 using InventoryService.Data;
 using InventoryService.Kafka;
 using InventoryService.Services;

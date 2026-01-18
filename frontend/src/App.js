@@ -1,3 +1,5 @@
+// Frontend - React application for test-workflow
+// Version: 1.0.0
 import React, { useState, useEffect } from 'react';
 import { api } from './services/api';
 import './App.css';
