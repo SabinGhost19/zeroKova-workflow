@@ -1,0 +1,1998 @@
+---
+# Source: test-workflow/charts/postgresql/templates/primary/networkpolicy.yaml
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: my-release-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+    app.kubernetes.io/component: primary
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: primary
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    # Allow dns resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow outbound connections to read-replicas
+    - ports:
+        - port: 5432
+        - port: 5432
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: my-release
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/component: read
+  ingress:
+    - ports:
+        - port: 5432
+---
+# Source: test-workflow/charts/postgresql/templates/read/networkpolicy.yaml
+kind: NetworkPolicy
+apiVersion: networking.k8s.io/v1
+metadata:
+  name: my-release-postgresql-read
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+    app.kubernetes.io/component: read
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: read
+  policyTypes:
+    - Ingress
+    - Egress
+  egress:
+    # Allow dns resolution
+    - ports:
+        - port: 53
+          protocol: UDP
+        - port: 53
+          protocol: TCP
+    # Allow outbound connections to primary
+    - ports:
+        - port: 5432
+        - port: 5432
+      to:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/instance: my-release
+              app.kubernetes.io/name: postgresql
+              app.kubernetes.io/component: primary
+  ingress:
+    - ports:
+        - port: 5432
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-default-deny
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  # apply to all pods in namespace
+  podSelector: {}
+  policyTypes:
+    - Ingress
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-allow-dns
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    # allow dns queries to kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-frontend
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: frontend
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow ingress from anywhere on http port
+    - ports:
+        - protocol: TCP
+          port: 80
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-api-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: api-gateway
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from frontend pods
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: frontend
+      ports:
+        - protocol: TCP
+          port: 8080
+    # allow from ingress-nginx namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: ingress-nginx
+      ports:
+        - protocol: TCP
+          port: 8080
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-order-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: order-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway on grpc port
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+      ports:
+        - protocol: TCP
+          port: 50051
+        - protocol: TCP
+          port: 8081
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-inventory-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: inventory-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway and order-service
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: order-service
+      ports:
+        - protocol: TCP
+          port: 50052
+        - protocol: TCP
+          port: 8082
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-notification-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: notification-service
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from api-gateway and order-service
+    - from:
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: api-gateway
+        - podSelector:
+            matchLabels:
+              app.kubernetes.io/component: order-service
+      ports:
+        - protocol: TCP
+          port: 50053
+        - protocol: TCP
+          port: 8083
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-postgresql
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: postgresql
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from backend tier pods
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: backend
+      ports:
+        - protocol: TCP
+          port: 5432
+---
+# Source: test-workflow/templates/networkpolicy.yaml
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: my-release-test-workflow-kafka
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: kafka
+  policyTypes:
+    - Ingress
+  ingress:
+    # allow from backend tier pods
+    - from:
+        - podSelector:
+            matchLabels:
+              tier: backend
+      ports:
+        - protocol: TCP
+          port: 9092
+---
+# Source: test-workflow/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-release-test-workflow-api-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: api-gateway
+spec:
+  # minimum available pods during disruption
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: api-gateway
+---
+# Source: test-workflow/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-release-test-workflow-order-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: order-service
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: order-service
+---
+# Source: test-workflow/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-release-test-workflow-inventory-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: inventory-service
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: inventory-service
+---
+# Source: test-workflow/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-release-test-workflow-notification-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: notification-service
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: notification-service
+---
+# Source: test-workflow/templates/pdb.yaml
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: my-release-test-workflow-frontend
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: frontend
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: frontend
+---
+# Source: test-workflow/charts/kafka/templates/rbac/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-release-kafka
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+    app.kubernetes.io/component: kafka
+automountServiceAccountToken: true
+---
+# Source: test-workflow/charts/postgresql/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-release-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+automountServiceAccountToken: false
+---
+# Source: test-workflow/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-release-test-workflow
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+automountServiceAccountToken: true
+---
+# Source: test-workflow/charts/kafka/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-release-kafka-user-passwords
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+type: Opaque
+data:
+  controller-password: "QlpHMEVSajB4Mg=="
+---
+# Source: test-workflow/charts/kafka/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-release-kafka-kraft-cluster-id
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+type: Opaque
+data:
+  kraft-cluster-id: "T3pFVmpBZEt5dWw4UTdxMzJrSmFEdg=="
+---
+# Source: test-workflow/charts/postgresql/templates/secrets.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-release-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+type: Opaque
+data:
+  postgres-password: "cG9zdGdyZXM="
+  # We don't auto-generate LDAP password when it's not provided as we do for other passwords
+---
+# Source: test-workflow/templates/secret.yaml
+apiVersion: v1
+kind: Secret
+metadata:
+  name: my-release-test-workflow-db-secret
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+type: Opaque
+data:
+  # database password - base64 encoded
+  # in production, use sealed-secrets or external secrets operator
+  DB_PASSWORD: "cG9zdGdyZXM="
+---
+# Source: test-workflow/charts/kafka/templates/controller-eligible/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-release-kafka-controller-configuration
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+    app.kubernetes.io/component: controller-eligible
+    app.kubernetes.io/part-of: kafka
+data:
+  server.properties: |-
+    # Listeners configuration
+    listeners=CLIENT://:9092,INTERNAL://:9094,CONTROLLER://:9093
+    advertised.listeners=CLIENT://advertised-address-placeholder:9092,INTERNAL://advertised-address-placeholder:9094
+    listener.security.protocol.map=CLIENT:PLAINTEXT,INTERNAL:PLAINTEXT,CONTROLLER:SASL_PLAINTEXT
+    # KRaft process roles
+    process.roles=controller,broker
+    #node.id=
+    controller.listener.names=CONTROLLER
+    controller.quorum.voters=0@my-release-kafka-controller-0.my-release-kafka-controller-headless.default.svc.cluster.local:9093
+    # Kraft Controller listener SASL settings
+    sasl.mechanism.controller.protocol=PLAIN
+    listener.name.controller.sasl.enabled.mechanisms=PLAIN
+    listener.name.controller.plain.sasl.jaas.config=org.apache.kafka.common.security.plain.PlainLoginModule required username="controller_user" password="controller-password-placeholder" user_controller_user="controller-password-placeholder";
+    log.dir=/bitnami/kafka/data
+    sasl.enabled.mechanisms=PLAIN,SCRAM-SHA-256,SCRAM-SHA-512
+    # Interbroker configuration
+    inter.broker.listener.name=INTERNAL
+    # Listeners SASL JAAS configuration
+    # End of SASL JAAS configuration
+---
+# Source: test-workflow/charts/kafka/templates/scripts-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-release-kafka-scripts
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+data:
+  kafka-init.sh: |-
+    #!/bin/bash
+
+    set -o errexit
+    set -o nounset
+    set -o pipefail
+
+    error(){
+      local message="${1:?missing message}"
+      echo "ERROR: ${message}"
+      exit 1
+    }
+
+    retry_while() {
+        local -r cmd="${1:?cmd is missing}"
+        local -r retries="${2:-12}"
+        local -r sleep_time="${3:-5}"
+        local return_value=1
+
+        read -r -a command <<< "$cmd"
+        for ((i = 1 ; i <= retries ; i+=1 )); do
+            "${command[@]}" && return_value=0 && break
+            sleep "$sleep_time"
+        done
+        return $return_value
+    }
+
+    replace_in_file() {
+        local filename="${1:?filename is required}"
+        local match_regex="${2:?match regex is required}"
+        local substitute_regex="${3:?substitute regex is required}"
+        local posix_regex=${4:-true}
+
+        local result
+
+        # We should avoid using 'sed in-place' substitutions
+        # 1) They are not compatible with files mounted from ConfigMap(s)
+        # 2) We found incompatibility issues with Debian10 and "in-place" substitutions
+        local -r del=$'\001' # Use a non-printable character as a 'sed' delimiter to avoid issues
+        if [[ $posix_regex = true ]]; then
+            result="$(sed -E "s${del}${match_regex}${del}${substitute_regex}${del}g" "$filename")"
+        else
+            result="$(sed "s${del}${match_regex}${del}${substitute_regex}${del}g" "$filename")"
+        fi
+        echo "$result" > "$filename"
+    }
+
+    kafka_conf_set() {
+        local file="${1:?missing file}"
+        local key="${2:?missing key}"
+        local value="${3:?missing value}"
+
+        # Check if the value was set before
+        if grep -q "^[#\\s]*$key\s*=.*" "$file"; then
+            # Update the existing key
+            replace_in_file "$file" "^[#\\s]*${key}\s*=.*" "${key}=${value}" false
+        else
+            # Add a new key
+            printf '\n%s=%s' "$key" "$value" >>"$file"
+        fi
+    }
+
+    replace_placeholder() {
+      local placeholder="${1:?missing placeholder value}"
+      local password="${2:?missing password value}"
+      sed -i "s/$placeholder/$password/g" "$KAFKA_CONFIG_FILE"
+    }
+
+    append_file_to_kafka_conf() {
+        local file="${1:?missing source file}"
+        local conf="${2:?missing kafka conf file}"
+
+        cat "$1" >> "$2"
+    }
+
+    configure_external_access() {
+      # Configure external hostname
+      if [[ -f "/shared/external-host.txt" ]]; then
+        host=$(cat "/shared/external-host.txt")
+      elif [[ -n "${EXTERNAL_ACCESS_HOST:-}" ]]; then
+        host="$EXTERNAL_ACCESS_HOST"
+      elif [[ -n "${EXTERNAL_ACCESS_HOSTS_LIST:-}" ]]; then
+        read -r -a hosts <<<"$(tr ',' ' ' <<<"${EXTERNAL_ACCESS_HOSTS_LIST}")"
+        host="${hosts[$POD_ID]}"
+      elif [[ "$EXTERNAL_ACCESS_HOST_USE_PUBLIC_IP" =~ ^(yes|true)$ ]]; then
+        host=$(curl -s https://ipinfo.io/ip)
+      else
+        error "External access hostname not provided"
+      fi
+
+      # Configure external port
+      if [[ -f "/shared/external-port.txt" ]]; then
+        port=$(cat "/shared/external-port.txt")
+      elif [[ -n "${EXTERNAL_ACCESS_PORT:-}" ]]; then
+        if [[ "${EXTERNAL_ACCESS_PORT_AUTOINCREMENT:-}" =~ ^(yes|true)$ ]]; then
+          port="$((EXTERNAL_ACCESS_PORT + POD_ID))"
+        else
+          port="$EXTERNAL_ACCESS_PORT"
+        fi
+      elif [[ -n "${EXTERNAL_ACCESS_PORTS_LIST:-}" ]]; then
+        read -r -a ports <<<"$(tr ',' ' ' <<<"${EXTERNAL_ACCESS_PORTS_LIST}")"
+        port="${ports[$POD_ID]}"
+      else
+        error "External access port not provided"
+      fi
+      # Configure Kafka advertised listeners
+      sed -i -E "s|^(advertised\.listeners=\S+)$|\1,EXTERNAL://${host}:${port}|" "$KAFKA_CONFIG_FILE"
+    }
+    configure_kafka_sasl() {
+
+      # Replace placeholders with passwords
+      replace_placeholder "controller-password-placeholder" "$KAFKA_CONTROLLER_PASSWORD"
+    }
+
+    export KAFKA_CONFIG_FILE=/config/server.properties
+    cp /configmaps/server.properties $KAFKA_CONFIG_FILE
+
+    # Get pod ID and role, last and second last fields in the pod name respectively
+    POD_ID=$(echo "$MY_POD_NAME" | rev | cut -d'-' -f 1 | rev)
+    POD_ROLE=$(echo "$MY_POD_NAME" | rev | cut -d'-' -f 2 | rev)
+
+    # Configure node.id and/or broker.id
+    if [[ -f "/bitnami/kafka/data/meta.properties" ]]; then
+        if grep -q "broker.id" /bitnami/kafka/data/meta.properties; then
+          ID="$(grep "broker.id" /bitnami/kafka/data/meta.properties | awk -F '=' '{print $2}')"
+          kafka_conf_set "$KAFKA_CONFIG_FILE" "node.id" "$ID"
+        else
+          ID="$(grep "node.id" /bitnami/kafka/data/meta.properties | awk -F '=' '{print $2}')"
+          kafka_conf_set "$KAFKA_CONFIG_FILE" "node.id" "$ID"
+        fi
+    else
+        ID=$((POD_ID + KAFKA_MIN_ID))
+        kafka_conf_set "$KAFKA_CONFIG_FILE" "node.id" "$ID"
+    fi
+    replace_placeholder "advertised-address-placeholder" "${MY_POD_NAME}.my-release-kafka-${POD_ROLE}-headless.default.svc.cluster.local"
+    if [[ "${EXTERNAL_ACCESS_ENABLED:-false}" =~ ^(yes|true)$ ]]; then
+      configure_external_access
+    fi
+    configure_kafka_sasl
+    if [ -f /secret-config/server-secret.properties ]; then
+      append_file_to_kafka_conf /secret-config/server-secret.properties $KAFKA_CONFIG_FILE
+    fi
+---
+# Source: test-workflow/charts/postgresql/templates/primary/initialization-configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-release-postgresql-init-scripts
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+data:
+  init.sql: |
+    -- create schemas for each service
+    CREATE SCHEMA IF NOT EXISTS orders;
+    CREATE SCHEMA IF NOT EXISTS inventory;
+    CREATE SCHEMA IF NOT EXISTS notifications;
+  
+    -- grant permissions
+    GRANT ALL ON SCHEMA orders TO postgres;
+    GRANT ALL ON SCHEMA inventory TO postgres;
+    GRANT ALL ON SCHEMA notifications TO postgres;
+---
+# Source: test-workflow/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: my-release-test-workflow-config
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+data:
+  # database configuration
+  # host and port for postgresql connection
+  DB_HOST: "my-release-postgresql"
+  DB_PORT: "5432"
+  DB_NAME: "testworkflow"
+  DB_USER: "postgres"
+
+  # kafka configuration
+  # bootstrap servers for kafka producer/consumer
+  KAFKA_BOOTSTRAP_SERVERS: "my-release-kafka:9092"
+
+  # service discovery configuration
+  # grpc addresses for inter-service communication
+  ORDER_SERVICE_ADDR: "my-release-test-workflow-order-service:50051"
+  INVENTORY_SERVICE_ADDR: "my-release-test-workflow-inventory-service:50052"
+  NOTIFICATION_SERVICE_ADDR: "my-release-test-workflow-notification-service:50053"
+
+  # api gateway configuration
+  GIN_MODE: "release"
+
+  # order service configuration
+  SPRING_PROFILES_ACTIVE: "kubernetes"
+  JAVA_OPTS: "-Xms128m -Xmx384m -XX:+UseG1GC"
+
+  # inventory service configuration
+  ASPNETCORE_URLS: "http://+:8082"
+---
+# Source: test-workflow/charts/kafka/templates/controller-eligible/svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-kafka-controller-headless
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+    app.kubernetes.io/component: controller-eligible
+    app.kubernetes.io/part-of: kafka
+spec:
+  type: ClusterIP
+  clusterIP: None
+  publishNotReadyAddresses: true
+  ports:
+    - name: tcp-interbroker
+      port: 9094
+      protocol: TCP
+      targetPort: interbroker
+    - name: tcp-client
+      port: 9092
+      protocol: TCP
+      targetPort: client
+    - name: tcp-controller
+      protocol: TCP
+      port: 9093
+      targetPort: controller
+  selector:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/component: controller-eligible
+    app.kubernetes.io/part-of: kafka
+---
+# Source: test-workflow/charts/kafka/templates/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-kafka
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+    app.kubernetes.io/component: kafka
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: tcp-client
+      port: 9092
+      protocol: TCP
+      targetPort: client
+      nodePort: null
+  selector:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/part-of: kafka
+---
+# Source: test-workflow/charts/postgresql/templates/primary/svc-headless.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-postgresql-hl
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+    app.kubernetes.io/component: primary
+  annotations:
+    # Use this annotation in addition to the actual publishNotReadyAddresses
+    # field below because the annotation will stop being respected soon but the
+    # field is broken in some versions of Kubernetes:
+    # https://github.com/kubernetes/kubernetes/issues/58662
+    service.alpha.kubernetes.io/tolerate-unready-endpoints: "true"
+spec:
+  type: ClusterIP
+  clusterIP: None
+  # We want all pods in the StatefulSet to have their addresses published for
+  # the sake of the other Postgresql pods even before they're ready, since they
+  # have to be able to talk to each other in order to become ready.
+  publishNotReadyAddresses: true
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+  selector:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: primary
+---
+# Source: test-workflow/charts/postgresql/templates/primary/svc.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+    app.kubernetes.io/component: primary
+spec:
+  type: ClusterIP
+  sessionAffinity: None
+  ports:
+    - name: tcp-postgresql
+      port: 5432
+      targetPort: tcp-postgresql
+      nodePort: null
+  selector:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/component: primary
+---
+# Source: test-workflow/templates/api-gateway/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-test-workflow-api-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: api-gateway
+spec:
+  type: ClusterIP
+  ports:
+    # http port for rest api traffic
+    - port: 8080
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/component: api-gateway
+---
+# Source: test-workflow/templates/frontend/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-test-workflow-frontend
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: frontend
+spec:
+  type: ClusterIP
+  ports:
+    # http port for nginx web server
+    - port: 80
+      targetPort: http
+      protocol: TCP
+      name: http
+  selector:
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/component: frontend
+---
+# Source: test-workflow/templates/inventory-service/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-test-workflow-inventory-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: inventory-service
+spec:
+  type: ClusterIP
+  ports:
+    # http port for asp.net core health checks and api
+    - port: 8082
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for inter-service communication
+    - port: 50052
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/component: inventory-service
+---
+# Source: test-workflow/templates/notification-service/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-test-workflow-notification-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: notification-service
+spec:
+  type: ClusterIP
+  ports:
+    # http port for health checks
+    - port: 8083
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for notification delivery
+    - port: 50053
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/component: notification-service
+---
+# Source: test-workflow/templates/order-service/service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: my-release-test-workflow-order-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: order-service
+spec:
+  type: ClusterIP
+  ports:
+    # http port for spring boot actuator and rest api
+    - port: 8081
+      targetPort: http
+      protocol: TCP
+      name: http
+    # grpc port for inter-service communication
+    - port: 50051
+      targetPort: grpc
+      protocol: TCP
+      name: grpc
+  selector:
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/component: order-service
+---
+# Source: test-workflow/templates/api-gateway/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-release-test-workflow-api-gateway
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: api-gateway
+spec:
+  # number of replicas - adjust based on load requirements
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: api-gateway
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test-workflow
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/component: api-gateway
+        tier: gateway
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: e60b614225558dfb0d2a3cf36f18ae037d93489eae9e38adacf90cf0cc954ed2
+    spec:
+      
+      serviceAccountName: my-release-test-workflow
+      # pod security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: api-gateway
+          # container image with tag
+          image: ghcr.io/sabinghost19/zerokova-workflow/api-gateway:latest
+          imagePullPolicy: Always
+          # container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            # http port for rest api
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: my-release-test-workflow-config
+          # liveness probe - restarts container if unhealthy
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # resource requests and limits
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      # node selector for pod scheduling
+      # affinity rules for pod scheduling
+      # tolerations for tainted nodes
+---
+# Source: test-workflow/templates/frontend/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-release-test-workflow-frontend
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: frontend
+spec:
+  # number of replicas for high availability
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: frontend
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test-workflow
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/component: frontend
+        tier: frontend
+    spec:
+      
+      serviceAccountName: my-release-test-workflow
+      # pod security context - nginx user
+      securityContext:
+        fsGroup: 101
+        runAsNonRoot: true
+        runAsUser: 101
+      containers:
+        - name: frontend
+          # container image with tag
+          image: ghcr.io/sabinghost19/zerokova-workflow/frontend:latest
+          imagePullPolicy: Always
+          # container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+          ports:
+            # http port for nginx
+            - name: http
+              containerPort: 80
+              protocol: TCP
+          # liveness probe - checks nginx health
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # resource requests and limits - nginx is lightweight
+          resources:
+            limits:
+              cpu: 100m
+              memory: 64Mi
+            requests:
+              cpu: 25m
+              memory: 32Mi
+          # volume mounts for nginx cache and tmp directories
+          volumeMounts:
+            - name: nginx-cache
+              mountPath: /var/cache/nginx
+            - name: nginx-run
+              mountPath: /var/run
+      # volumes for writable directories when using read-only root filesystem
+      volumes:
+        - name: nginx-cache
+          emptyDir: {}
+        - name: nginx-run
+          emptyDir: {}
+      # node selector for pod scheduling
+      # affinity rules for pod scheduling
+      # tolerations for tainted nodes
+---
+# Source: test-workflow/templates/inventory-service/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-release-test-workflow-inventory-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: inventory-service
+spec:
+  # number of replicas for high availability
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: inventory-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test-workflow
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/component: inventory-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: e60b614225558dfb0d2a3cf36f18ae037d93489eae9e38adacf90cf0cc954ed2
+    spec:
+      
+      serviceAccountName: my-release-test-workflow
+      # pod security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: inventory-service
+          # container image with tag
+          image: ghcr.io/sabinghost19/zerokova-workflow/inventory-service:latest
+          imagePullPolicy: Always
+          # container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+          ports:
+            # http port for asp.net core
+            - name: http
+              containerPort: 8082
+              protocol: TCP
+            # grpc port for inter-service communication
+            - name: grpc
+              containerPort: 50052
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: my-release-test-workflow-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-test-workflow-db-secret
+                  key: DB_PASSWORD
+            # asp.net core urls configuration
+            - name: ASPNETCORE_URLS
+              value: "http://+:8082"
+          # liveness probe - checks service health
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # resource requests and limits
+          resources:
+            limits:
+              cpu: 500m
+              memory: 256Mi
+            requests:
+              cpu: 100m
+              memory: 128Mi
+      # node selector for pod scheduling
+      # affinity rules for pod scheduling
+      # tolerations for tainted nodes
+---
+# Source: test-workflow/templates/notification-service/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-release-test-workflow-notification-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: notification-service
+spec:
+  # number of replicas for high availability
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: notification-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test-workflow
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/component: notification-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: e60b614225558dfb0d2a3cf36f18ae037d93489eae9e38adacf90cf0cc954ed2
+    spec:
+      
+      serviceAccountName: my-release-test-workflow
+      # pod security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: notification-service
+          # container image with tag
+          image: ghcr.io/sabinghost19/zerokova-workflow/notification-service:latest
+          imagePullPolicy: Always
+          # container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+          ports:
+            # http port for health checks
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+            # grpc port for notification service
+            - name: grpc
+              containerPort: 50053
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: my-release-test-workflow-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-test-workflow-db-secret
+                  key: DB_PASSWORD
+            # grpc port configuration
+            - name: GRPC_PORT
+              value: "50053"
+            # http port configuration for health checks
+            - name: HTTP_PORT
+              value: "8083"
+          # liveness probe - checks service health
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # resource requests and limits
+          resources:
+            limits:
+              cpu: 200m
+              memory: 128Mi
+            requests:
+              cpu: 50m
+              memory: 64Mi
+      # node selector for pod scheduling
+      # affinity rules for pod scheduling
+      # tolerations for tainted nodes
+---
+# Source: test-workflow/templates/order-service/deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-release-test-workflow-order-service
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/component: order-service
+spec:
+  # number of replicas for high availability
+  replicas: 2
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: test-workflow
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/component: order-service
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: test-workflow
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/component: order-service
+        tier: backend
+      annotations:
+        # force pod restart when configmap changes
+        checksum/config: e60b614225558dfb0d2a3cf36f18ae037d93489eae9e38adacf90cf0cc954ed2
+    spec:
+      
+      serviceAccountName: my-release-test-workflow
+      # pod security context
+      securityContext:
+        fsGroup: 1000
+        runAsNonRoot: true
+        runAsUser: 1000
+      containers:
+        - name: order-service
+          # container image with tag
+          image: ghcr.io/sabinghost19/zerokova-workflow/order-service:latest
+          imagePullPolicy: Always
+          # container security context
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: false
+          ports:
+            # http port for spring boot actuator
+            - name: http
+              containerPort: 8081
+              protocol: TCP
+            # grpc port for inter-service communication
+            - name: grpc
+              containerPort: 50051
+              protocol: TCP
+          # environment variables from configmap
+          envFrom:
+            - configMapRef:
+                name: my-release-test-workflow-config
+          env:
+            # database password from secret
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-test-workflow-db-secret
+                  key: DB_PASSWORD
+            # jvm options for memory tuning
+            - name: JAVA_OPTS
+              value: "-Xms128m -Xmx384m -XX:+UseG1GC"
+          # liveness probe - uses spring boot actuator
+          livenessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # readiness probe - controls traffic routing
+          readinessProbe:
+            httpGet:
+              path: /actuator/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          # resource requests and limits - java needs more memory
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+      # node selector for pod scheduling
+      # affinity rules for pod scheduling
+      # tolerations for tainted nodes
+---
+# Source: test-workflow/charts/kafka/templates/controller-eligible/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-release-kafka-controller
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: kafka
+    app.kubernetes.io/version: 3.6.0
+    helm.sh/chart: kafka-26.0.0
+    app.kubernetes.io/component: controller-eligible
+    app.kubernetes.io/part-of: kafka
+spec:
+  podManagementPolicy: Parallel
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/name: kafka
+      app.kubernetes.io/component: controller-eligible
+      app.kubernetes.io/part-of: kafka
+  serviceName: my-release-kafka-controller-headless
+  updateStrategy:
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: kafka
+        app.kubernetes.io/version: 3.6.0
+        helm.sh/chart: kafka-26.0.0
+        app.kubernetes.io/component: controller-eligible
+        app.kubernetes.io/part-of: kafka
+      annotations:
+        checksum/configuration: 2f98d6dbe79cc39bfad0a73cea13e07c570742294ddd8327ac4a586c3b20a0f7
+        checksum/passwords-secret: 8f62e98d777cbfb20a47c92c1628fc684575c91fec9cdd4905271873c927452c
+    spec:
+      
+      hostNetwork: false
+      hostIPC: false
+      affinity:
+        podAffinity:
+          
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: my-release
+                    app.kubernetes.io/name: kafka
+                    app.kubernetes.io/component: controller-eligible
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+          
+      securityContext:
+        fsGroup: 1001
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: my-release-kafka
+      enableServiceLinks: true
+      initContainers:
+        - name: kafka-init
+          image: public.ecr.aws/bitnami/kafka:4.1.1-debian-12-r5
+          imagePullPolicy: IfNotPresent
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+          command:
+            - /bin/bash
+          args:
+            - -ec
+            - |
+              /scripts/kafka-init.sh
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: MY_POD_NAME
+              valueFrom:
+                fieldRef:
+                    fieldPath: metadata.name
+            - name: KAFKA_VOLUME_DIR
+              value: "/bitnami/kafka"
+            - name: KAFKA_MIN_ID
+              value: "0"
+            - name: KAFKA_CONTROLLER_USER
+              value: "controller_user"
+            - name: KAFKA_CONTROLLER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-kafka-user-passwords
+                  key: controller-password
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+            - name: kafka-config
+              mountPath: /config
+            - name: kafka-configmaps
+              mountPath: /configmaps
+            - name: kafka-secret-config
+              mountPath: /secret-config
+            - name: scripts
+              mountPath: /scripts
+            - name: tmp
+              mountPath: /tmp
+      containers:
+        - name: kafka
+          image: public.ecr.aws/bitnami/kafka:4.1.1-debian-12-r5
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            readOnlyRootFilesystem: true
+            runAsNonRoot: true
+            runAsUser: 1001
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: KAFKA_HEAP_OPTS
+              value: "-Xmx1024m -Xms1024m"
+            - name: KAFKA_KRAFT_CLUSTER_ID
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-kafka-kraft-cluster-id
+                  key: kraft-cluster-id
+            - name: KAFKA_KRAFT_BOOTSTRAP_SCRAM_USERS
+              value: "true"
+            - name: KAFKA_CONTROLLER_USER
+              value: "controller_user"
+            - name: KAFKA_CONTROLLER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-kafka-user-passwords
+                  key: controller-password
+          ports:
+            - name: controller
+              containerPort: 9093
+            - name: client
+              containerPort: 9092
+            - name: interbroker
+              containerPort: 9094
+          livenessProbe:
+            failureThreshold: 3
+            initialDelaySeconds: 10
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            tcpSocket:
+              port: "controller"
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            tcpSocket:
+              port: "controller"
+          resources:
+            limits: {}
+            requests: {}
+          volumeMounts:
+            - name: data
+              mountPath: /bitnami/kafka
+            - name: logs
+              mountPath: /opt/bitnami/kafka/logs
+            - name: kafka-config
+              mountPath: /opt/bitnami/kafka/config/server.properties
+              subPath: server.properties
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: kafka-configmaps
+          configMap:
+            name: my-release-kafka-controller-configuration
+        - name: kafka-secret-config
+          emptyDir: {}
+        - name: kafka-config
+          emptyDir: {}
+        - name: tmp
+          emptyDir: {}
+        - name: scripts
+          configMap:
+            name: my-release-kafka-scripts
+            defaultMode: 0755
+        - name: data
+          emptyDir: {}
+        - name: logs
+          emptyDir: {}
+---
+# Source: test-workflow/charts/postgresql/templates/primary/statefulset.yaml
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: my-release-postgresql
+  namespace: "default"
+  labels:
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/managed-by: Helm
+    app.kubernetes.io/name: postgresql
+    app.kubernetes.io/version: 16.1.0
+    helm.sh/chart: postgresql-14.0.0
+    app.kubernetes.io/component: primary
+spec:
+  replicas: 1
+  serviceName: my-release-postgresql-hl
+  updateStrategy:
+    rollingUpdate: {}
+    type: RollingUpdate
+  selector:
+    matchLabels:
+      app.kubernetes.io/instance: my-release
+      app.kubernetes.io/name: postgresql
+      app.kubernetes.io/component: primary
+  template:
+    metadata:
+      name: my-release-postgresql
+      labels:
+        app.kubernetes.io/instance: my-release
+        app.kubernetes.io/managed-by: Helm
+        app.kubernetes.io/name: postgresql
+        app.kubernetes.io/version: 16.1.0
+        helm.sh/chart: postgresql-14.0.0
+        app.kubernetes.io/component: primary
+    spec:
+      serviceAccountName: my-release-postgresql
+      
+      automountServiceAccountToken: false
+      affinity:
+        podAffinity:
+          
+        podAntiAffinity:
+          preferredDuringSchedulingIgnoredDuringExecution:
+            - podAffinityTerm:
+                labelSelector:
+                  matchLabels:
+                    app.kubernetes.io/instance: my-release
+                    app.kubernetes.io/name: postgresql
+                    app.kubernetes.io/component: primary
+                topologyKey: kubernetes.io/hostname
+              weight: 1
+        nodeAffinity:
+          
+      securityContext:
+        fsGroup: 1001
+        fsGroupChangePolicy: Always
+        supplementalGroups: []
+        sysctls: []
+      hostNetwork: false
+      hostIPC: false
+      containers:
+        - name: postgresql
+          image: public.ecr.aws/bitnami/postgresql:latest
+          imagePullPolicy: "IfNotPresent"
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop:
+              - ALL
+            privileged: false
+            readOnlyRootFilesystem: false
+            runAsNonRoot: true
+            runAsUser: 1001
+            seccompProfile:
+              type: RuntimeDefault
+          env:
+            - name: BITNAMI_DEBUG
+              value: "false"
+            - name: POSTGRESQL_PORT_NUMBER
+              value: "5432"
+            - name: POSTGRESQL_VOLUME_DIR
+              value: "/bitnami/postgresql"
+            - name: PGDATA
+              value: "/bitnami/postgresql/data"
+            # Authentication
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: my-release-postgresql
+                  key: postgres-password
+            - name: POSTGRES_DATABASE
+              value: "testworkflow"
+            # Replication
+            # Initdb
+            # Standby
+            # LDAP
+            - name: POSTGRESQL_ENABLE_LDAP
+              value: "no"
+            # TLS
+            - name: POSTGRESQL_ENABLE_TLS
+              value: "no"
+            # Audit
+            - name: POSTGRESQL_LOG_HOSTNAME
+              value: "false"
+            - name: POSTGRESQL_LOG_CONNECTIONS
+              value: "false"
+            - name: POSTGRESQL_LOG_DISCONNECTIONS
+              value: "false"
+            - name: POSTGRESQL_PGAUDIT_LOG_CATALOG
+              value: "off"
+            # Others
+            - name: POSTGRESQL_CLIENT_MIN_MESSAGES
+              value: "error"
+            - name: POSTGRESQL_SHARED_PRELOAD_LIBRARIES
+              value: "pgaudit"
+          ports:
+            - name: tcp-postgresql
+              containerPort: 5432
+          livenessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - exec pg_isready -U "postgres" -d "dbname=testworkflow" -h 127.0.0.1 -p 5432
+          readinessProbe:
+            failureThreshold: 6
+            initialDelaySeconds: 5
+            periodSeconds: 10
+            successThreshold: 1
+            timeoutSeconds: 5
+            exec:
+              command:
+                - /bin/sh
+                - -c
+                - -e
+                - |
+                  exec pg_isready -U "postgres" -d "dbname=testworkflow" -h 127.0.0.1 -p 5432
+                  [ -f /opt/bitnami/postgresql/tmp/.initialized ] || [ -f /bitnami/postgresql/.initialized ]
+          resources:
+            limits:
+              cpu: 500m
+              memory: 512Mi
+            requests:
+              cpu: 100m
+              memory: 256Mi
+          volumeMounts:
+            - name: custom-init-scripts
+              mountPath: /docker-entrypoint-initdb.d/
+            - name: dshm
+              mountPath: /dev/shm
+      volumes:
+        - name: custom-init-scripts
+          configMap:
+            name: my-release-postgresql-init-scripts
+        - name: dshm
+          emptyDir:
+            medium: Memory
+        - name: data
+          emptyDir: {}
+---
+# Source: test-workflow/templates/ingress.yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: my-release-test-workflow
+  namespace: default
+  labels:
+    helm.sh/chart: test-workflow-1.0.0
+    app.kubernetes.io/name: test-workflow
+    app.kubernetes.io/instance: my-release
+    app.kubernetes.io/version: "v1.0"
+    app.kubernetes.io/managed-by: Helm
+  annotations:
+    nginx.ingress.kubernetes.io/proxy-body-size: 10m
+    nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: "test-workflow.local"
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: my-release-test-workflow-frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: my-release-test-workflow-api-gateway
+                port:
+                  number: 8080

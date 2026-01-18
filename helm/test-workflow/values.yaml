@@ -4,11 +4,10 @@
 # these values are inherited by all subcharts and templates
 # -----------------------------------------------------------------------------
 global:
-  # container image registry - where images are pulled from
-  # change this to your private registry if not using ghcr
-  # container image registry - where images are pulled from
-  # change this to your private registry if not using ghcr
-  imageRegistry: ghcr.io/sabinghost19/zerokova-workflow
+  # container image registry - where YOUR service images are pulled from
+  # this is used by test-workflow services (api-gateway, order-service, etc.)
+  # NOTE: do NOT use imageRegistry here as it would affect bitnami subcharts
+  customImageRegistry: ghcr.io/sabinghost19/zerokova-workflow
 
   # image pull policy - when to pull images from registry
   # options: Always, IfNotPresent, Never
@@ -506,6 +505,12 @@ postgresql:
   # enable or disable postgresql deployment
   enabled: true
 
+  # use official bitnami image from AWS ECR public
+  image:
+    registry: public.ecr.aws
+    repository: bitnami/postgresql
+    tag: 18.1.0-debian-12-r5
+
   # authentication settings
   auth:
     # database name
@@ -521,8 +526,8 @@ postgresql:
   primary:
     # persistence settings
     persistence:
-      # enable persistent storage
-      enabled: true
+      # enable persistent storage - disabled because no StorageClass in cluster
+      enabled: false
       # storage size
       size: 1Gi
       # storage class - leave empty for default
@@ -576,6 +581,12 @@ kafka:
   # enable or disable kafka deployment
   enabled: true
 
+  # use official bitnami image from AWS ECR public
+  image:
+    registry: public.ecr.aws
+    repository: bitnami/kafka
+    tag: 4.1.1-debian-12-r5
+
   # listeners configuration
   listeners:
     # client listener settings
@@ -589,6 +600,9 @@ kafka:
   controller:
     # number of controller replicas
     replicaCount: 1
+    # disable persistence at controller level (no StorageClass)
+    persistence:
+      enabled: false
 
   # resource limits
   resources:
@@ -601,7 +615,8 @@ kafka:
 
   # persistence settings
   persistence:
-    enabled: true
+    # disabled because no StorageClass in cluster
+    enabled: false
     size: 1Gi
     storageClass: ""
 

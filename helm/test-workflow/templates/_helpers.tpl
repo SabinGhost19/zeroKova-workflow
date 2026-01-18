@@ -96,7 +96,7 @@ return the proper image name for a service
 combines global registry, service repository, and tag
 */}}
 {{- define "test-workflow.image" -}}
-{{- $registry := .global.imageRegistry -}}
+{{- $registry := .global.customImageRegistry -}}
 {{- $repository := .service.image.repository -}}
 {{- $tag := .service.image.tag | default .global.imageTag -}}
 {{- printf "%s/%s:%s" $registry $repository $tag -}}
