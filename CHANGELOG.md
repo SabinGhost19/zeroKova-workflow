@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.11](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.10...v1.3.11) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* **order-service:** upgrade grpc-spring-boot-starter to 3.1.0 for Spring Boot 3 compatibility ([de29737](https://github.com/SabinGhost19/zeroKova-workflow/commit/de2973724a80f84d0a8c1f5a17b8c0e03ef3aff0))
+
 ## [1.3.10](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.9...v1.3.10) (2026-01-18)
 
 ### 🐛 Bug Fixes
