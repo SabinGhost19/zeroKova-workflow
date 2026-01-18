@@ -7,7 +7,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Protobuf Include="Protos\*.proto" GrpcServices="Server" />
+    <Protobuf Include="Protos\common.proto" GrpcServices="None" />
+    <Protobuf Include="Protos\inventory.proto" GrpcServices="Server" AdditionalImportDirs="Protos" />
   </ItemGroup>
 
   <ItemGroup>
