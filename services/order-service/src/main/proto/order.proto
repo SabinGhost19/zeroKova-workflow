@@ -4,6 +4,7 @@ package order;
 
 option go_package = "github.com/test-workflow/proto/order";
 option java_package = "com.testworkflow.proto";
+option java_multiple_files = true;
 option csharp_namespace = "TestWorkflow.Proto";
 
 import "common.proto";

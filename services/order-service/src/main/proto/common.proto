@@ -4,6 +4,7 @@ package common;
 
 option go_package = "github.com/test-workflow/proto/common";
 option java_package = "com.testworkflow.proto";
+option java_multiple_files = true;
 option csharp_namespace = "TestWorkflow.Proto";
 
 // Common messages used across services
