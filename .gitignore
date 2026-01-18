@@ -5,10 +5,10 @@ node_modules/
 vendor/
 .bundle/
 
-# Lock files - generated in CI
-package-lock.json
-Gemfile.lock
-go.sum
+# Lock files - keep these committed for reproducible builds
+# package-lock.json  <- Commented out: should be committed
+# Gemfile.lock       <- Commented out: should be committed
+# go.sum             <- Commented out: should be committed
 
 # =============================================================================
 # Build outputs
