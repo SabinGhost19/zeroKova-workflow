@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.14](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.13...v1.3.14) (2026-01-18)
+
+### 🐛 Bug Fixes
+
+* allow ruby tests to fail/timeout without blocking deployment ([9931525](https://github.com/SabinGhost19/zeroKova-workflow/commit/99315252eb341654fc75966a88601a2806e44e29))
+
 ## [1.3.13](https://github.com/SabinGhost19/zeroKova-workflow/compare/v1.3.12...v1.3.13) (2026-01-18)
 
 ### 🐛 Bug Fixes
