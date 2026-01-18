@@ -136,6 +136,7 @@
                 </configuration>
                 <executions>
                     <execution>
+                        <id>compile-proto</id>
                         <phase>generate-sources</phase>
                         <goals>
                             <goal>compile</goal>
