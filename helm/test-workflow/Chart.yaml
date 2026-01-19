@@ -62,14 +62,14 @@ sources:
 dependencies:
   # postgresql database - bitnami chart
   - name: postgresql
-    version: "14.0.0"
+    version: "14.0.5"
     repository: "https://charts.bitnami.com/bitnami"
     condition: postgresql.enabled
     alias: postgresql
 
   # kafka message broker - bitnami chart
   - name: kafka
-    version: "26.0.0"
+    version: "26.0.1"
     repository: "https://charts.bitnami.com/bitnami"
     condition: kafka.enabled
     alias: kafka
