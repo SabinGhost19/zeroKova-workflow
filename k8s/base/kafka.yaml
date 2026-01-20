@@ -96,7 +96,7 @@ spec:
     spec:
       containers:
         - name: kafka
-          image: confluentinc/cp-kafka:7.5.0
+          image: confluentinc/cp-kafka:7.9.5
           ports:
             - containerPort: 9092
           env:
