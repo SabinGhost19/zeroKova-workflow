@@ -15,7 +15,7 @@
     <PackageReference Include="Grpc.AspNetCore" Version="2.59.0" />
     <PackageReference Include="Grpc.Tools" Version="2.59.0" PrivateAssets="All" />
     <PackageReference Include="Google.Protobuf" Version="3.25.1" />
-    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.0" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="11.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.0" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="8.0.0" PrivateAssets="All" />
     <PackageReference Include="Confluent.Kafka" Version="2.3.0" />
